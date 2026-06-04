@@ -1,0 +1,1 @@
+"""Application SINIKO — backend FastAPI."""

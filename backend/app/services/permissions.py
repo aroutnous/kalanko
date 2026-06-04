@@ -1,0 +1,49 @@
+"""Matrice des permissions par rôle (M1 — Authentification & Accès)."""
+
+from app.models.enums import RoleUtilisateur
+
+# Permissions nommées : module.action (ex. auth.login, users.read)
+ROLE_PERMISSIONS: dict[RoleUtilisateur, frozenset[str]] = {
+    RoleUtilisateur.PLATFORM_OWNER: frozenset({"*"}),
+    RoleUtilisateur.PROMOTEUR: frozenset(
+        {
+            "tenant.read",
+            "tenant.update",
+            "users.manage",
+            "establishment.manage",
+            "students.manage",
+            "pedagogy.manage",
+            "finance.manage",
+            "reports.read",
+        }
+    ),
+    RoleUtilisateur.DIRECTEUR: frozenset(
+        {
+            "establishment.read",
+            "students.read",
+            "students.update",
+            "pedagogy.manage",
+            "reports.read",
+        }
+    ),
+    RoleUtilisateur.SECRETAIRE: frozenset(
+        {
+            "students.manage",
+            "finance.payments",
+            "reports.read",
+        }
+    ),
+    RoleUtilisateur.COMPTABLE: frozenset(
+        {
+            "finance.manage",
+            "finance.read",
+            "reports.read",
+        }
+    ),
+}
+
+
+def role_has_permission(role: RoleUtilisateur, permission: str) -> bool:
+    """Vérifie si un rôle dispose de la permission demandée."""
+    permissions = ROLE_PERMISSIONS.get(role, frozenset())
+    return "*" in permissions or permission in permissions
