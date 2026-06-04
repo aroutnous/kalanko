@@ -10,6 +10,8 @@ Plateforme SaaS de gestion scolaire multi-tenant pour les établissements malien
 - DevSecOps : GitHub Actions + Gitleaks + Bandit + Semgrep + Trivy + OWASP ZAP + Wazuh
 
 ## Structure
+
+\`\`\`
 siniko/
 ├── backend/        # API FastAPI
 ├── frontend/       # React + Vite + TypeScript
@@ -17,6 +19,7 @@ siniko/
 ├── docs/           # Documentation
 └── .github/
     └── workflows/  # Pipeline CI/CD GitHub Actions
+\`\`\`
 
 ## Auteur
 Amara Sountoura — Stage THL Technologie, Bamako 2026
