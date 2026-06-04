@@ -110,6 +110,8 @@ def _enable_rls(connection, table_name: str) -> None:
     connection.execute(
         text(f"ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY")
     )
+    # nosec B608 — table_name est une constante interne,
+    # pas une entrée utilisateur. Risque d'injection nul.
     connection.execute(
         text(
             f"""
