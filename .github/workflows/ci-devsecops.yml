@@ -1,0 +1,122 @@
+name: CI — DevSecOps SINIKO
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # =====================
+  # ÉTAPE 1 — SECRETS
+  # =====================
+  secrets-scan:
+    name: "1 · Gitleaks — Détection secrets"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =====================
+  # ÉTAPE 2 — SAST
+  # =====================
+  sast:
+    name: "2 · SAST — Bandit + Semgrep"
+    runs-on: ubuntu-latest
+    needs: secrets-scan
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Bandit
+        run: pip install bandit
+      - name: Run Bandit
+        run: |
+          if [ -d "backend" ] && [ "$(ls -A backend)" ]; then
+            bandit -r backend/ -ll -f json -o bandit-report.json || true
+            bandit -r backend/ -ll
+          else
+            echo "backend/ vide — scan ignoré pour l'instant"
+          fi
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/fastapi
+            p/secrets
+        continue-on-error: true
+
+  # =====================
+  # ÉTAPE 3 — SCA
+  # =====================
+  sca:
+    name: "3 · SCA — Safety + npm audit"
+    runs-on: ubuntu-latest
+    needs: secrets-scan
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Safety
+        run: |
+          pip install safety
+          if [ -f "backend/requirements.txt" ]; then
+            safety check -r backend/requirements.txt || true
+          else
+            echo "requirements.txt absent — scan ignoré pour l'instant"
+          fi
+      - name: Run npm audit
+        run: |
+          if [ -f "frontend/package.json" ]; then
+            cd frontend && npm audit || true
+          else
+            echo "package.json absent — scan ignoré pour l'instant"
+          fi
+
+  # =====================
+  # ÉTAPE 4 — DOCKER + TRIVY
+  # =====================
+  container-scan:
+    name: "4 · Trivy — Scan image Docker"
+    runs-on: ubuntu-latest
+    needs: [sast, sca]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Trivy (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: 0
+          format: table
+
+  # =====================
+  # ÉTAPE 5 — DEPLOY STAGING (à activer en Phase 1)
+  # =====================
+  # deploy-staging:
+  #   name: "5 · Deploy staging"
+  #   runs-on: ubuntu-latest
+  #   needs: container-scan
+  #   steps:
+  #     - run: echo "Deploy staging — à configurer en Phase 1"
+
+  # =====================
+  # ÉTAPE 6 — DAST (à activer en Phase 2)
+  # =====================
+  # dast:
+  #   name: "6 · OWASP ZAP — DAST"
+  #   runs-on: ubuntu-latest
+  #   needs: deploy-staging
+  #   steps:
+  #     - run: echo "OWASP ZAP — à configurer en Phase 2"
