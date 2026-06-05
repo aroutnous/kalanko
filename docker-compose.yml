@@ -38,30 +38,30 @@ services:
   # =====================
   # BACKEND (à activer en Phase 1)
   # =====================
-  # backend:
-  #   build: ./backend
-  #   container_name: siniko_backend
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     DATABASE_URL: postgresql://siniko_user:siniko_dev_password@db:5432/siniko
-  #     REDIS_URL: redis://redis:6379
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
+  backend:
+    build: ./backend
+    container_name: siniko_backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://siniko_user:siniko_dev_password@db:5432/siniko
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   # =====================
   # FRONTEND (à activer en Phase 1)
   # =====================
-  # frontend:
-  #   build: ./frontend
-  #   container_name: siniko_frontend
-  #   ports:
-  #     - "5173:5173"
-  #   depends_on:
-  #     - backend
+  frontend:
+    build: ./frontend
+    container_name: siniko_frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
 
   # =====================
   # DB UI (développement uniquement)
