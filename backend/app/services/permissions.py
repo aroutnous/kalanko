@@ -14,6 +14,7 @@ ROLE_PERMISSIONS: dict[RoleUtilisateur, frozenset[str]] = {
             "students.manage",
             "pedagogy.manage",
             "finance.manage",
+            "paiements.read",
             "reports.read",
         }
     ),
@@ -35,6 +36,7 @@ ROLE_PERMISSIONS: dict[RoleUtilisateur, frozenset[str]] = {
             "pedagogy.generate",
             "pedagogy.read",
             "finance.payments",
+            "paiements.read",
             "reports.impressions",
         }
     ),
@@ -43,6 +45,7 @@ ROLE_PERMISSIONS: dict[RoleUtilisateur, frozenset[str]] = {
             "establishment.read",
             "finance.manage",
             "finance.read",
+            "paiements.read",
             "reports.read",
         }
     ),

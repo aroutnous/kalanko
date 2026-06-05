@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.eleve import Eleve, Inscription
@@ -166,6 +167,20 @@ class FinanceService:
             self._ajouter_entree_caisse(paiement.date_paiement, paiement.montant_paye)
 
         return PaiementResponse.model_validate(paiement)
+
+    def list_paiements_jour(self) -> list[PaiementResponse]:
+        """Paiements créés aujourd'hui pour le tenant courant."""
+        today = date.today()
+        paiements = (
+            self.db.query(Paiement)
+            .filter(
+                Paiement.tenant_id == self.tenant_id,
+                func.date(Paiement.created_at) == today,
+            )
+            .order_by(Paiement.created_at.desc())
+            .all()
+        )
+        return [PaiementResponse.model_validate(p) for p in paiements]
 
     def valider_paiement(
         self,

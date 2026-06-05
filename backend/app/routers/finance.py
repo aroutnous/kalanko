@@ -7,7 +7,7 @@ from typing import Annotated, Callable
 from fastapi import APIRouter, Depends, Query, Request, status
 
 from app.core.database import DbSession
-from app.core.security import CurrentUser
+from app.core.security import CurrentUser, require_permission
 from app.models.auth import Utilisateur
 from app.schemas.finance import (
     CaisseJourResponse,
@@ -95,6 +95,7 @@ def require_finance_manage() -> Callable[..., Utilisateur]:
 FinanceReader = Annotated[Utilisateur, Depends(require_finance_read())]
 FinancePayments = Annotated[Utilisateur, Depends(require_finance_payments())]
 FinanceManager = Annotated[Utilisateur, Depends(require_finance_manage())]
+PaiementsReader = Annotated[Utilisateur, Depends(require_permission("paiements.read"))]
 
 
 def _service(db: DbSession, user: Utilisateur, request: Request) -> FinanceService:
@@ -129,6 +130,15 @@ def list_frais(
     annee_id: uuid.UUID | None = Query(default=None),
 ) -> list[FraisScolaireResponse]:
     return _service(db, user, request).list_frais(niveau_id, annee_id)
+
+
+@router.get("/paiements", response_model=list[PaiementResponse])
+def list_paiements_jour(
+    request: Request,
+    db: DbSession,
+    user: PaiementsReader,
+) -> list[PaiementResponse]:
+    return _service(db, user, request).list_paiements_jour()
 
 
 @router.post(

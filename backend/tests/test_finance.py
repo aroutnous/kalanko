@@ -205,6 +205,39 @@ async def test_enregistrement_paiement(
     assert float(data["montant_paye"]) == 25000.0
 
 
+@pytest.mark.asyncio
+async def test_list_paiements_jour(
+    async_client: AsyncClient,
+    auth_headers: dict[str, str],
+    comptable_headers: dict[str, str],
+    secretaire_headers: dict[str, str],
+) -> None:
+    ctx = await _create_finance_context(
+        async_client, auth_headers, comptable_headers
+    )
+    create = await async_client.post(
+        "/finance/paiements",
+        json={
+            "eleve_id": ctx["eleve_id"],
+            "frais_id": ctx["frais_id"],
+            "annee_scolaire_id": ctx["annee_id"],
+            "montant_paye": "15000",
+            "mode_paiement": "especes",
+        },
+        headers=secretaire_headers,
+    )
+    assert create.status_code == 201
+    paiement_id = create.json()["id"]
+
+    liste = await async_client.get("/finance/paiements", headers=comptable_headers)
+    assert liste.status_code == 200
+    ids = [p["id"] for p in liste.json()]
+    assert paiement_id in ids
+
+    forbidden = await async_client.get("/finance/paiements", headers=auth_headers)
+    assert forbidden.status_code == 403
+
+
 def test_paiement_immutable_no_update_delete() -> None:
     """Aucune méthode de modification/suppression métier sur les paiements."""
     forbidden = {"update_paiement", "modifier_paiement", "delete_paiement", "supprimer_paiement"}
