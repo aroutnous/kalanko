@@ -71,6 +71,13 @@ class ModePaiement(str, enum.Enum):
     ESPECES = "especes"
     MOBILE_MONEY = "mobile_money"
     VIREMENT = "virement"
+    CHEQUE = "cheque"
+
+
+class StatutPaiement(str, enum.Enum):
+    EN_ATTENTE = "en_attente"
+    VALIDE = "valide"
+    ANNULE = "annule"
 
 
 class StatutSalaire(str, enum.Enum):

@@ -4,12 +4,12 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Numeric, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import TenantScopedModel
-from app.models.enums import ModePaiement, StatutSalaire, pg_enum
+from app.models.enums import ModePaiement, StatutPaiement, StatutSalaire, pg_enum
 
 
 class FraisScolaire(TenantScopedModel):
@@ -39,6 +39,13 @@ class Paiement(TenantScopedModel):
     """Paiements immutables — pas de UPDATE/DELETE métier."""
 
     __tablename__ = "paiements"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "reference_transaction",
+            name="uq_paiements_tenant_reference",
+        ),
+    )
 
     eleve_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -70,6 +77,11 @@ class Paiement(TenantScopedModel):
         nullable=True,
     )
     date_paiement: Mapped[date] = mapped_column(Date, nullable=False)
+    statut: Mapped[StatutPaiement] = mapped_column(
+        pg_enum(StatutPaiement, "statut_paiement"),
+        nullable=False,
+        default=StatutPaiement.VALIDE,
+    )
 
     frais: Mapped["FraisScolaire"] = relationship(back_populates="paiements")
 

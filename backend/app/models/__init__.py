@@ -10,6 +10,7 @@ from app.models.base import BaseModel, TenantScopedModel
 from app.models.eleve import Absence, Eleve, Inscription
 from app.models.enums import (
     ModePaiement,
+    StatutPaiement,
     RoleUtilisateur,
     SexeEleve,
     StatutAbonnement,
@@ -85,5 +86,6 @@ __all__ = [
     "TypeAbsence",
     "StatutBulletin",
     "ModePaiement",
+    "StatutPaiement",
     "StatutSalaire",
 ]
