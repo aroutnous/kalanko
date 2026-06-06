@@ -191,14 +191,74 @@ export interface ClasseEffectif {
   est_complete: boolean;
 }
 
+export type StatutBulletin = "brouillon" | "valide" | "publie";
+export type MentionScolaire =
+  | "Très Bien"
+  | "Bien"
+  | "Assez Bien"
+  | "Passable"
+  | "Insuffisant";
+
 export interface Note {
   id: string;
+  tenant_id?: string;
   eleve_id: string;
   matiere_id: string;
   periode_id: string;
   classe_id: string;
   valeur: number;
   appreciation: string | null;
+  saisi_par?: string | null;
+  created_at?: string;
+  updated_at?: string | null;
+}
+
+export interface NoteCreatePayload {
+  eleve_id: string;
+  matiere_id: string;
+  periode_id: string;
+  classe_id: string;
+  valeur: number;
+  appreciation?: string;
+}
+
+export interface Bulletin {
+  id: string;
+  tenant_id: string;
+  eleve_id: string;
+  classe_id: string;
+  periode_id: string;
+  moyenne_generale: number | null;
+  rang: number | null;
+  effectif_classe: number | null;
+  mention: string | null;
+  appreciation_generale: string | null;
+  statut: StatutBulletin;
+  valide_par: string | null;
+  date_validation: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ClassementEleve {
+  eleve_id: string;
+  moyenne_generale: number | null;
+  rang: number | null;
+  mention: string | null;
+}
+
+export interface MoyenneMatiere {
+  matiere_id: string;
+  moyenne: number;
+}
+
+export interface ResultatsClasse {
+  classe_id: string;
+  periode_id: string;
+  effectif: number;
+  moyennes_par_matiere: MoyenneMatiere[];
+  classement: ClassementEleve[];
+  taux_reussite: number;
 }
 
 export type ModePaiement = "especes" | "mobile_money" | "virement" | "cheque";

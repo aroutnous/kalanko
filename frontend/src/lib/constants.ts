@@ -21,6 +21,10 @@ export const ROUTES = {
   etablissementClasses: "/etablissement/classes",
   etablissementMatieres: "/etablissement/matieres",
   etablissementConfigNotation: "/etablissement/config-notation",
+  pedagogieNotes: "/pedagogie/notes",
+  pedagogieBulletins: "/pedagogie/bulletins",
+  pedagogieResultats: "/pedagogie/resultats",
+  pedagogieHistorique: "/pedagogie/historique",
 } as const;
 
 export const SESSION_KEYS = {

@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Building2,
   CalendarX,
   ClipboardList,
@@ -47,6 +48,12 @@ const TENANT_NAV_ITEMS: NavItem[] = [
     to: ROUTES.elevesAbsences,
     label: "Absences",
     icon: CalendarX,
+    roles: ["promoteur", "directeur", "secretaire"],
+  },
+  {
+    to: ROUTES.pedagogieNotes,
+    label: "Pédagogie",
+    icon: BookOpen,
     roles: ["promoteur", "directeur", "secretaire"],
   },
   {

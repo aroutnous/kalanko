@@ -23,6 +23,11 @@ import { MatieresPage } from "@/pages/etablissement/MatieresPage";
 import { NiveauxPage } from "@/pages/etablissement/NiveauxPage";
 import { PeriodesPage } from "@/pages/etablissement/PeriodesPage";
 import { EtablissementLayout } from "@/components/etablissement/EtablissementLayout";
+import { PedagogieLayout } from "@/components/pedagogie/PedagogieLayout";
+import { BulletinsPage } from "@/pages/pedagogie/BulletinsPage";
+import { HistoriqueNotesPage } from "@/pages/pedagogie/HistoriqueNotesPage";
+import { ResultatsClassePage } from "@/pages/pedagogie/ResultatsClassePage";
+import { SaisieNotesPage } from "@/pages/pedagogie/SaisieNotesPage";
 import { useAuthStore } from "@/stores/authStore";
 
 function PrivateRoute(): React.JSX.Element {
@@ -58,6 +63,14 @@ function PlatformRoute(): React.JSX.Element {
 function EstablishmentRoute(): React.JSX.Element {
   const role = useAuthStore((s) => s.user?.role);
   if (role !== "promoteur" && role !== "directeur") {
+    return <Navigate to={ROUTES.dashboard} replace />;
+  }
+  return <Outlet />;
+}
+
+function PedagogieRoute(): React.JSX.Element {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role !== "promoteur" && role !== "directeur" && role !== "secretaire") {
     return <Navigate to={ROUTES.dashboard} replace />;
   }
   return <Outlet />;
@@ -106,6 +119,20 @@ export const router = createBrowserRouter([
                     path: ROUTES.etablissementConfigNotation,
                     element: <ConfigNotationPage />,
                   },
+                ],
+              },
+            ],
+          },
+          {
+            element: <PedagogieRoute />,
+            children: [
+              {
+                element: <PedagogieLayout />,
+                children: [
+                  { path: ROUTES.pedagogieNotes, element: <SaisieNotesPage /> },
+                  { path: ROUTES.pedagogieBulletins, element: <BulletinsPage /> },
+                  { path: ROUTES.pedagogieResultats, element: <ResultatsClassePage /> },
+                  { path: ROUTES.pedagogieHistorique, element: <HistoriqueNotesPage /> },
                 ],
               },
             ],
