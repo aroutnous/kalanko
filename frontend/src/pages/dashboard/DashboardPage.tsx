@@ -82,7 +82,7 @@ export function DashboardPage(): React.JSX.Element {
       ) : null}
       {data ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {renderKpis(data.donnees)}
+          {renderKpis(data.donnees as Record<string, number | string>)}
         </div>
       ) : null}
     </div>

@@ -360,7 +360,59 @@ export interface TableauBordResponse {
   tenant_id: string;
   role: RoleUtilisateur;
   generated_at: string;
-  donnees: Record<string, number | string>;
+  donnees: Record<string, number | string | unknown>;
+}
+
+export interface StatsClasseItem {
+  classe_id: string;
+  nom: string;
+  effectif: number;
+}
+
+export interface StatsNiveauItem {
+  niveau_id: string;
+  nom: string;
+  effectif: number;
+}
+
+export interface StatsCycleItem {
+  cycle_id: string;
+  nom: string;
+  effectif: number;
+}
+
+export interface StatsPeriodeItem {
+  periode_id: string;
+  nom: string;
+  taux_reussite_moyen: number;
+}
+
+export interface StatsEleves {
+  total_eleves: number;
+  par_classe: StatsClasseItem[];
+  par_niveau: StatsNiveauItem[];
+  par_cycle: StatsCycleItem[];
+}
+
+export interface StatsResultats {
+  par_periode: StatsPeriodeItem[];
+  taux_reussite_moyen: number;
+}
+
+export interface StatsFinancieres {
+  total_recettes: number;
+  total_depenses: number;
+  taux_recouvrement: number;
+}
+
+export interface StatistiquesGlobales {
+  tenant_id: string;
+  annee_scolaire_id: string;
+  generated_at: string;
+  eleves: StatsEleves;
+  resultats: StatsResultats;
+  financieres: StatsFinancieres;
+  taux_paiement: number;
 }
 
 export interface ApiError {

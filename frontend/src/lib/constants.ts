@@ -32,6 +32,10 @@ export const ROUTES = {
   pedagogieBulletins: "/pedagogie/bulletins",
   pedagogieResultats: "/pedagogie/resultats",
   pedagogieHistorique: "/pedagogie/historique",
+  reportingTableauBord: "/reporting/tableau-bord",
+  reportingStatistiques: "/reporting/statistiques",
+  reportingExports: "/reporting/exports",
+  reportingImpressions: "/reporting/impressions",
 } as const;
 
 export const SESSION_KEYS = {

@@ -62,7 +62,27 @@ def require_reports_impressions() -> Callable[..., Utilisateur]:
     return checker
 
 
+def require_reports_dashboard() -> Callable[..., Utilisateur]:
+    """Tableau de bord : reports.read ou reports.impressions (Secrétaire inclus)."""
+
+    async def checker(current_user: CurrentUser) -> Utilisateur:
+        if not (
+            role_has_permission(current_user.role, "reports.read")
+            or role_has_permission(current_user.role, "reports.impressions")
+        ):
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission insuffisante",
+            )
+        return current_user
+
+    return checker
+
+
 ReportsReader = Annotated[Utilisateur, Depends(require_reports_read())]
+ReportsDashboard = Annotated[Utilisateur, Depends(require_reports_dashboard())]
 ReportsImpressions = Annotated[Utilisateur, Depends(require_reports_impressions())]
 
 
@@ -89,7 +109,7 @@ def _stream_bytes(data: bytes, media_type: str, filename: str) -> StreamingRespo
 @router.get("/tableau-bord", response_model=TableauBordResponse)
 def get_tableau_bord(
     db: DbSession,
-    user: ReportsReader,
+    user: ReportsDashboard,
 ) -> TableauBordResponse:
     return _reporting(db, user).get_tableau_bord(user.role)
 

@@ -36,6 +36,11 @@ import { BulletinsPage } from "@/pages/pedagogie/BulletinsPage";
 import { HistoriqueNotesPage } from "@/pages/pedagogie/HistoriqueNotesPage";
 import { ResultatsClassePage } from "@/pages/pedagogie/ResultatsClassePage";
 import { SaisieNotesPage } from "@/pages/pedagogie/SaisieNotesPage";
+import { ReportingLayout } from "@/components/reporting/ReportingLayout";
+import { ExportsPage } from "@/pages/reporting/ExportsPage";
+import { ImpressionsPage } from "@/pages/reporting/ImpressionsPage";
+import { StatistiquesPage } from "@/pages/reporting/StatistiquesPage";
+import { TableauBordPage } from "@/pages/reporting/TableauBordPage";
 import { useAuthStore } from "@/stores/authStore";
 
 function PrivateRoute(): React.JSX.Element {
@@ -91,6 +96,19 @@ function FinanceRoute(): React.JSX.Element {
     role !== "comptable" &&
     role !== "secretaire" &&
     role !== "directeur"
+  ) {
+    return <Navigate to={ROUTES.dashboard} replace />;
+  }
+  return <Outlet />;
+}
+
+function ReportingRoute(): React.JSX.Element {
+  const role = useAuthStore((s) => s.user?.role);
+  if (
+    role !== "promoteur" &&
+    role !== "directeur" &&
+    role !== "comptable" &&
+    role !== "secretaire"
   ) {
     return <Navigate to={ROUTES.dashboard} replace />;
   }
@@ -174,6 +192,20 @@ export const router = createBrowserRouter([
                   { path: ROUTES.pedagogieBulletins, element: <BulletinsPage /> },
                   { path: ROUTES.pedagogieResultats, element: <ResultatsClassePage /> },
                   { path: ROUTES.pedagogieHistorique, element: <HistoriqueNotesPage /> },
+                ],
+              },
+            ],
+          },
+          {
+            element: <ReportingRoute />,
+            children: [
+              {
+                element: <ReportingLayout />,
+                children: [
+                  { path: ROUTES.reportingTableauBord, element: <TableauBordPage /> },
+                  { path: ROUTES.reportingStatistiques, element: <StatistiquesPage /> },
+                  { path: ROUTES.reportingExports, element: <ExportsPage /> },
+                  { path: ROUTES.reportingImpressions, element: <ImpressionsPage /> },
                 ],
               },
             ],

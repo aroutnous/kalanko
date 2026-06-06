@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   Building2,
   CalendarX,
@@ -60,6 +61,12 @@ const TENANT_NAV_ITEMS: NavItem[] = [
     to: ROUTES.financePaiements,
     label: "Finance",
     icon: Wallet,
+    roles: ["promoteur", "directeur", "secretaire", "comptable"],
+  },
+  {
+    to: ROUTES.reportingTableauBord,
+    label: "Reporting",
+    icon: BarChart3,
     roles: ["promoteur", "directeur", "secretaire", "comptable"],
   },
 ];
