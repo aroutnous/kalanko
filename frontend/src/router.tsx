@@ -14,6 +14,14 @@ import { PlansPage } from "@/pages/platform/PlansPage";
 import { PlatformDashboardPage } from "@/pages/platform/PlatformDashboardPage";
 import { TenantCreatePage } from "@/pages/platform/TenantCreatePage";
 import { TenantsListPage } from "@/pages/platform/TenantsListPage";
+import { AnneesPage } from "@/pages/etablissement/AnneesPage";
+import { ClassesPage } from "@/pages/etablissement/ClassesPage";
+import { ConfigNotationPage } from "@/pages/etablissement/ConfigNotationPage";
+import { CyclesPage } from "@/pages/etablissement/CyclesPage";
+import { MatieresPage } from "@/pages/etablissement/MatieresPage";
+import { NiveauxPage } from "@/pages/etablissement/NiveauxPage";
+import { PeriodesPage } from "@/pages/etablissement/PeriodesPage";
+import { EtablissementLayout } from "@/components/etablissement/EtablissementLayout";
 import { useAuthStore } from "@/stores/authStore";
 
 function PrivateRoute(): React.JSX.Element {
@@ -46,6 +54,14 @@ function PlatformRoute(): React.JSX.Element {
   return <Outlet />;
 }
 
+function EstablishmentRoute(): React.JSX.Element {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role !== "promoteur" && role !== "directeur") {
+    return <Navigate to={ROUTES.dashboard} replace />;
+  }
+  return <Outlet />;
+}
+
 export const router = createBrowserRouter([
   {
     element: <PublicRoute />,
@@ -70,6 +86,26 @@ export const router = createBrowserRouter([
               { path: ROUTES.platformTenantsCreate, element: <TenantCreatePage /> },
               { path: ROUTES.platformPlans, element: <PlansPage /> },
               { path: ROUTES.platformAudit, element: <AuditLogsPage /> },
+            ],
+          },
+          {
+            element: <EstablishmentRoute />,
+            children: [
+              {
+                element: <EtablissementLayout />,
+                children: [
+                  { path: ROUTES.etablissementAnnees, element: <AnneesPage /> },
+                  { path: ROUTES.etablissementPeriodes, element: <PeriodesPage /> },
+                  { path: ROUTES.etablissementCycles, element: <CyclesPage /> },
+                  { path: ROUTES.etablissementNiveaux, element: <NiveauxPage /> },
+                  { path: ROUTES.etablissementClasses, element: <ClassesPage /> },
+                  { path: ROUTES.etablissementMatieres, element: <MatieresPage /> },
+                  {
+                    path: ROUTES.etablissementConfigNotation,
+                    element: <ConfigNotationPage />,
+                  },
+                ],
+              },
             ],
           },
         ],

@@ -104,8 +104,56 @@ export interface AnneeScolaire {
   date_debut: string;
   date_fin: string;
   est_active: boolean;
-  created_at: string;
-  updated_at: string | null;
+}
+
+export interface Cycle {
+  id: string;
+  tenant_id: string;
+  nom: string;
+  description: string | null;
+  ordre: number;
+}
+
+export interface Niveau {
+  id: string;
+  tenant_id: string;
+  cycle_id: string;
+  nom: string;
+  ordre: number;
+}
+
+export interface Periode {
+  id: string;
+  tenant_id: string;
+  annee_scolaire_id: string;
+  nom: string;
+  date_debut: string;
+  date_fin: string;
+  ordre: number;
+}
+
+export interface Matiere {
+  id: string;
+  tenant_id: string;
+  niveau_id: string;
+  nom: string;
+  coefficient: number;
+  est_active: boolean;
+}
+
+export interface ConfigNotation {
+  id: string;
+  tenant_id: string;
+  note_max: number;
+  note_passage: number;
+  arrondi: number;
+}
+
+export interface ClasseEffectif {
+  classe_id: string;
+  effectif: number;
+  capacite_max: number | null;
+  est_complete: boolean;
 }
 
 export interface Note {

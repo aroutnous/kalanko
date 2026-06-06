@@ -13,6 +13,13 @@ export const ROUTES = {
   platformTenantsCreate: "/platform/tenants/nouveau",
   platformPlans: "/platform/plans",
   platformAudit: "/platform/audit",
+  etablissementAnnees: "/etablissement/annees",
+  etablissementPeriodes: "/etablissement/periodes",
+  etablissementCycles: "/etablissement/cycles",
+  etablissementNiveaux: "/etablissement/niveaux",
+  etablissementClasses: "/etablissement/classes",
+  etablissementMatieres: "/etablissement/matieres",
+  etablissementConfigNotation: "/etablissement/config-notation",
 } as const;
 
 export const SESSION_KEYS = {

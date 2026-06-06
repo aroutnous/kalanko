@@ -31,6 +31,12 @@ const TENANT_NAV_ITEMS: NavItem[] = [
     roles: ["promoteur", "directeur", "secretaire", "comptable"],
   },
   {
+    to: ROUTES.etablissementAnnees,
+    label: "Établissement",
+    icon: Building2,
+    roles: ["promoteur", "directeur"],
+  },
+  {
     to: ROUTES.eleves,
     label: "Élèves",
     icon: GraduationCap,
