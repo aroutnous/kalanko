@@ -38,13 +38,17 @@ export interface LoginResponse {
   tenant_slug: string;
 }
 
+export type StatutEleve = "actif" | "transfere" | "exclu";
+export type StatutInscription = "inscrit" | "transfere" | "abandonne";
+export type TypeAbsence = "absence" | "retard";
+
 export interface Inscription {
   id: string;
   eleve_id: string;
   classe_id: string;
   annee_scolaire_id: string;
   date_inscription: string;
-  statut: string;
+  statut: StatutInscription;
   created_at: string;
   updated_at: string | null;
 }
@@ -54,12 +58,43 @@ export interface Absence {
   eleve_id: string;
   classe_id: string;
   date_absence: string;
-  type: string;
+  type: TypeAbsence;
   justifiee: boolean;
   motif: string | null;
   saisi_par: string | null;
   created_at: string;
   updated_at: string | null;
+}
+
+export interface AbsenceStatistiques {
+  classe_id: string;
+  total: number;
+  absences: number;
+  retards: number;
+  justifiees: number;
+  non_justifiees: number;
+}
+
+export interface ClasseAbsencesResponse {
+  absences: Absence[];
+  statistiques: AbsenceStatistiques;
+}
+
+export interface EleveInscrireResponse {
+  eleve: Eleve;
+  inscription: Inscription;
+}
+
+export interface EleveListItem extends Eleve {
+  classe_nom?: string;
+}
+
+export interface AbsenceCreatePayload {
+  classe_id: string;
+  date_absence: string;
+  type: TypeAbsence;
+  justifiee?: boolean;
+  motif?: string;
 }
 
 export interface DossierEleve {
@@ -81,7 +116,7 @@ export interface Eleve {
   nom_parent: string | null;
   telephone_parent: string | null;
   adresse: string | null;
-  statut: string;
+  statut: StatutEleve;
   created_at: string;
   updated_at: string | null;
 }

@@ -1,5 +1,6 @@
 import {
   Building2,
+  CalendarX,
   ClipboardList,
   CreditCard,
   GraduationCap,
@@ -40,6 +41,12 @@ const TENANT_NAV_ITEMS: NavItem[] = [
     to: ROUTES.eleves,
     label: "Élèves",
     icon: GraduationCap,
+    roles: ["promoteur", "directeur", "secretaire"],
+  },
+  {
+    to: ROUTES.elevesAbsences,
+    label: "Absences",
+    icon: CalendarX,
     roles: ["promoteur", "directeur", "secretaire"],
   },
   {
