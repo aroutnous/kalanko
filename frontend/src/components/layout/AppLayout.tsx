@@ -3,8 +3,6 @@ import {
   BookOpen,
   Building2,
   CalendarX,
-  ClipboardList,
-  CreditCard,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -13,9 +11,10 @@ import {
   UserCog,
   Wallet,
 } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { getPostLogoutRoute } from "@/lib/auth-routes";
 import { ROLE_LABELS, ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
@@ -26,6 +25,7 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: RoleUtilisateur[];
+  end?: boolean;
 }
 
 const TENANT_NAV_ITEMS: NavItem[] = [
@@ -34,6 +34,7 @@ const TENANT_NAV_ITEMS: NavItem[] = [
     label: "Tableau de bord",
     icon: LayoutDashboard,
     roles: ["promoteur", "directeur", "secretaire", "comptable"],
+    end: true,
   },
   {
     to: ROUTES.etablissementAnnees,
@@ -46,6 +47,7 @@ const TENANT_NAV_ITEMS: NavItem[] = [
     label: "Élèves",
     icon: GraduationCap,
     roles: ["promoteur", "directeur", "secretaire"],
+    end: true,
   },
   {
     to: ROUTES.elevesAbsences,
@@ -76,47 +78,20 @@ const TENANT_NAV_ITEMS: NavItem[] = [
     label: "Utilisateurs",
     icon: UserCog,
     roles: ["promoteur"],
-  },
-];
-
-const PLATFORM_NAV_ITEMS: NavItem[] = [
-  {
-    to: ROUTES.platformDashboard,
-    label: "Vue plateforme",
-    icon: LayoutDashboard,
-    roles: ["platform_owner"],
-  },
-  {
-    to: ROUTES.platformTenants,
-    label: "Tenants",
-    icon: Building2,
-    roles: ["platform_owner"],
-  },
-  {
-    to: ROUTES.platformPlans,
-    label: "Plans",
-    icon: CreditCard,
-    roles: ["platform_owner"],
-  },
-  {
-    to: ROUTES.platformAudit,
-    label: "Audit",
-    icon: ClipboardList,
-    roles: ["platform_owner"],
+    end: true,
   },
 ];
 
 export function AppLayout(): React.JSX.Element {
+  const location = useLocation();
   const navigate = useNavigate();
   const { user, tenant, logout } = useAuthStore();
-
   const role = user?.role ?? "secretaire";
-  const navSource = role === "platform_owner" ? PLATFORM_NAV_ITEMS : TENANT_NAV_ITEMS;
-  const visibleNav = navSource.filter((item) => item.roles.includes(role));
+  const visibleNav = TENANT_NAV_ITEMS.filter((item) => item.roles.includes(role));
 
   const handleLogout = async (): Promise<void> => {
     await logout();
-    navigate(ROUTES.login);
+    navigate(getPostLogoutRoute(role));
   };
 
   return (
@@ -134,6 +109,7 @@ export function AppLayout(): React.JSX.Element {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.end}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
@@ -159,6 +135,7 @@ export function AppLayout(): React.JSX.Element {
           </div>
           <NavLink
             to={ROUTES.profil}
+            end
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
@@ -191,7 +168,7 @@ export function AppLayout(): React.JSX.Element {
           </Button>
         </header>
         <main className="flex-1 overflow-auto p-6">
-          <Outlet />
+          <Outlet key={location.pathname} />
         </main>
       </div>
     </div>

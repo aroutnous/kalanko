@@ -1,4 +1,4 @@
-import { School } from "lucide-react";
+import { Shield } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -10,13 +10,12 @@ import { getPostLoginRoute } from "@/lib/auth-routes";
 import { getErrorMessage } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 
-export function LoginPage(): React.JSX.Element {
+export function AdminLoginPage(): React.JSX.Element {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [etablissement, setEtablissement] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,9 +25,9 @@ export function LoginPage(): React.JSX.Element {
     setLoading(true);
     try {
       const response = await login({
-        tenant_slug: etablissement.trim(),
         email: email.trim(),
         password,
+        tenant_slug: "",
       });
       navigate(getPostLoginRoute(response.role));
     } catch (err) {
@@ -43,43 +42,31 @@ export function LoginPage(): React.JSX.Element {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <School className="h-6 w-6 text-primary" />
+            <Shield className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle>Connexion SINIKO</CardTitle>
+          <CardTitle>Administration SINIKO</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Plateforme de gestion scolaire multi-tenant
+            Connexion réservée à l&apos;administrateur plateforme
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="etablissement">Établissement</Label>
+              <Label htmlFor="admin-email">Email</Label>
               <Input
-                id="etablissement"
-                name="etablissement"
-                value={etablissement}
-                onChange={(e) => setEtablissement(e.target.value)}
-                placeholder="ecole-exemple"
-                required
-                autoComplete="organization"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
+                id="admin-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="directeur@ecole.ml"
+                placeholder="admin@siniko.ml"
                 required
                 autoComplete="email"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
+              <Label htmlFor="admin-password">Mot de passe</Label>
               <Input
-                id="password"
+                id="admin-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

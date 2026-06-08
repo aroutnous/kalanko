@@ -3,6 +3,7 @@ export const API_BASE_URL =
 
 export const ROUTES = {
   login: "/login",
+  adminLogin: "/admin",
   dashboard: "/dashboard",
   eleves: "/eleves",
   elevesInscrire: "/eleves/inscrire",

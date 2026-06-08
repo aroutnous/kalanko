@@ -50,10 +50,13 @@ class AuthService:
         tenant_slug: str,
         ip_address: str | None,
     ) -> LoginResponse:
-        email = email.lower()
-        tenant = (
-            self.db.query(Tenant).filter(Tenant.slug == tenant_slug).first()
-        )
+        email = email.lower().strip()
+        slug = tenant_slug.strip()
+
+        if not slug:
+            return self._login_platform_owner(email, password, ip_address)
+
+        tenant = self.db.query(Tenant).filter(Tenant.slug == slug).first()
 
         if tenant is None:
             log_audit(
@@ -61,7 +64,7 @@ class AuthService:
                 action="auth.login",
                 resultat="failure",
                 ip_address=ip_address,
-                details={"reason": "unknown_tenant", "tenant_slug": tenant_slug},
+                details={"reason": "unknown_tenant", "tenant_slug": slug},
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -86,7 +89,7 @@ class AuthService:
             self.db.query(Utilisateur)
             .filter(
                 Utilisateur.tenant_id == tenant.id,
-                Utilisateur.email == email.lower(),
+                Utilisateur.email == email,
             )
             .first()
         )
@@ -110,7 +113,62 @@ class AuthService:
                 detail="Identifiants invalides",
             )
 
-        # Active le contexte RLS PostgreSQL pour la suite de la requête
+        return self._finalize_login(user, tenant, ip_address)
+
+    def _login_platform_owner(
+        self,
+        email: str,
+        password: str,
+        ip_address: str | None,
+    ) -> LoginResponse:
+        """Authentification platform_owner par email seul (sans tenant_slug)."""
+        user = (
+            self.db.query(Utilisateur)
+            .filter(
+                Utilisateur.email == email,
+                Utilisateur.role == RoleUtilisateur.PLATFORM_OWNER,
+                Utilisateur.statut == StatutUtilisateur.ACTIF,
+            )
+            .first()
+        )
+
+        if user is None or not verify_password(password, user.mot_de_passe_hash):
+            log_audit(
+                self.db,
+                action="auth.login",
+                resultat="failure",
+                ip_address=ip_address,
+                details={"reason": "invalid_platform_owner_credentials"},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Identifiants invalides",
+            )
+
+        tenant = self.db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+        if tenant is None or tenant.statut != StatutTenant.ACTIF:
+            log_audit(
+                self.db,
+                action="auth.login",
+                resultat="failure",
+                tenant_id=user.tenant_id,
+                utilisateur_id=user.id,
+                ip_address=ip_address,
+                details={"reason": "platform_tenant_inactive"},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Plateforme indisponible",
+            )
+
+        return self._finalize_login(user, tenant, ip_address)
+
+    def _finalize_login(
+        self,
+        user: Utilisateur,
+        tenant: Tenant,
+        ip_address: str | None,
+    ) -> LoginResponse:
         set_tenant_context(self.db, tenant.id)
 
         expires_delta = timedelta(minutes=settings.jwt_expire_minutes)
@@ -408,7 +466,10 @@ class AuthService:
         set_tenant_context(self.db, actor.tenant_id)
         users = (
             self.db.query(Utilisateur)
-            .filter(Utilisateur.tenant_id == actor.tenant_id)
+            .filter(
+                Utilisateur.tenant_id == actor.tenant_id,
+                Utilisateur.role != RoleUtilisateur.PLATFORM_OWNER,
+            )
             .order_by(Utilisateur.nom, Utilisateur.prenom)
             .all()
         )

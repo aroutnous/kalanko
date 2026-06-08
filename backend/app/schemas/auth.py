@@ -19,7 +19,13 @@ ROLES_CREATABLE_PAR_PROMOTEUR: frozenset[RoleUtilisateur] = frozenset(
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
-    tenant_slug: str = Field(..., min_length=2, max_length=100)
+    tenant_slug: str = Field(default="", max_length=100)
+
+    @model_validator(mode="after")
+    def tenant_slug_valide(self) -> "LoginRequest":
+        if self.tenant_slug and len(self.tenant_slug) < 2:
+            raise ValueError("Le slug établissement doit contenir au moins 2 caractères")
+        return self
 
 
 class LoginResponse(BaseModel):

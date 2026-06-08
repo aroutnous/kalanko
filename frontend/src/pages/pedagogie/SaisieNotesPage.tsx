@@ -115,11 +115,25 @@ export function SaisieNotesPage(): React.JSX.Element {
 
   const loadingNotes = noteQueries.some((q) => q.isLoading);
 
+  const eleveIdsKey = eleves.map((e) => e.id).join(",");
+  const matiereIdsKey = matieres.map((m) => m.id).join(",");
+  const notesQueryKey = noteQueries
+    .map((q) => `${q.dataUpdatedAt ?? 0}:${q.status}`)
+    .join("|");
+
   useEffect(() => {
-    if (!classeId || !periodeId || eleves.length === 0) {
-      setGrid({});
+    if (!classeId || !periodeId) {
+      setGrid((prev) => (Object.keys(prev).length === 0 ? prev : {}));
       return;
     }
+    if (eleves.length === 0) {
+      setGrid((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      return;
+    }
+    if (noteQueries.some((q) => q.isLoading)) {
+      return;
+    }
+
     const next: NotesGridState = {};
     eleves.forEach((eleve, index) => {
       const notes = noteQueries[index]?.data ?? [];
@@ -136,7 +150,7 @@ export function SaisieNotesPage(): React.JSX.Element {
       });
     });
     setGrid(next);
-  }, [classeId, periodeId, eleves, matieres, noteQueries]);
+  }, [classeId, periodeId, eleveIdsKey, matiereIdsKey, notesQueryKey]);
 
   const saveMutation = useMutation({
     mutationFn: async (notes: NoteCreatePayload[]) => {

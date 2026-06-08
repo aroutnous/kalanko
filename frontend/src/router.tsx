@@ -1,15 +1,28 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { createBrowserRouter } from "react-router-dom";
 
+import { EtablissementLayout } from "@/components/etablissement/EtablissementLayout";
+import { FinanceLayout } from "@/components/finance/FinanceLayout";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PlatformLayout } from "@/components/layout/PlatformLayout";
+import { PedagogieLayout } from "@/components/pedagogie/PedagogieLayout";
+import { ReportingLayout } from "@/components/reporting/ReportingLayout";
+import { getPostLoginRoute } from "@/lib/auth-routes";
 import { ROUTES } from "@/lib/constants";
+import { AdminLoginPage } from "@/pages/auth/AdminLoginPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
+import { AnneesPage } from "@/pages/etablissement/AnneesPage";
+import { ClassesPage } from "@/pages/etablissement/ClassesPage";
+import { ConfigNotationPage } from "@/pages/etablissement/ConfigNotationPage";
+import { CyclesPage } from "@/pages/etablissement/CyclesPage";
+import { MatieresPage } from "@/pages/etablissement/MatieresPage";
+import { NiveauxPage } from "@/pages/etablissement/NiveauxPage";
+import { PeriodesPage } from "@/pages/etablissement/PeriodesPage";
 import { AbsencesPage } from "@/pages/eleves/AbsencesPage";
 import { EleveDossierPage } from "@/pages/eleves/EleveDossierPage";
 import { ElevesListPage } from "@/pages/eleves/ElevesListPage";
 import { InscriptionPage } from "@/pages/eleves/InscriptionPage";
-import { FinanceLayout } from "@/components/finance/FinanceLayout";
 import { CaissePage } from "@/pages/finance/CaissePage";
 import { DepensesPage } from "@/pages/finance/DepensesPage";
 import { FraisScolairesPage } from "@/pages/finance/FraisScolairesPage";
@@ -18,25 +31,15 @@ import { PaiementsPage } from "@/pages/finance/PaiementsPage";
 import { SalairesPage } from "@/pages/finance/SalairesPage";
 import { TableauBordFinancierPage } from "@/pages/finance/TableauBordFinancierPage";
 import { TransactionsPage } from "@/pages/finance/TransactionsPage";
+import { BulletinsPage } from "@/pages/pedagogie/BulletinsPage";
+import { HistoriqueNotesPage } from "@/pages/pedagogie/HistoriqueNotesPage";
+import { ResultatsClassePage } from "@/pages/pedagogie/ResultatsClassePage";
+import { SaisieNotesPage } from "@/pages/pedagogie/SaisieNotesPage";
 import { AuditLogsPage } from "@/pages/platform/AuditLogsPage";
 import { PlansPage } from "@/pages/platform/PlansPage";
 import { PlatformDashboardPage } from "@/pages/platform/PlatformDashboardPage";
 import { TenantCreatePage } from "@/pages/platform/TenantCreatePage";
 import { TenantsListPage } from "@/pages/platform/TenantsListPage";
-import { AnneesPage } from "@/pages/etablissement/AnneesPage";
-import { ClassesPage } from "@/pages/etablissement/ClassesPage";
-import { ConfigNotationPage } from "@/pages/etablissement/ConfigNotationPage";
-import { CyclesPage } from "@/pages/etablissement/CyclesPage";
-import { MatieresPage } from "@/pages/etablissement/MatieresPage";
-import { NiveauxPage } from "@/pages/etablissement/NiveauxPage";
-import { PeriodesPage } from "@/pages/etablissement/PeriodesPage";
-import { EtablissementLayout } from "@/components/etablissement/EtablissementLayout";
-import { PedagogieLayout } from "@/components/pedagogie/PedagogieLayout";
-import { BulletinsPage } from "@/pages/pedagogie/BulletinsPage";
-import { HistoriqueNotesPage } from "@/pages/pedagogie/HistoriqueNotesPage";
-import { ResultatsClassePage } from "@/pages/pedagogie/ResultatsClassePage";
-import { SaisieNotesPage } from "@/pages/pedagogie/SaisieNotesPage";
-import { ReportingLayout } from "@/components/reporting/ReportingLayout";
 import { ExportsPage } from "@/pages/reporting/ExportsPage";
 import { ImpressionsPage } from "@/pages/reporting/ImpressionsPage";
 import { StatistiquesPage } from "@/pages/reporting/StatistiquesPage";
@@ -45,204 +48,191 @@ import { ProfilPage } from "@/pages/utilisateurs/ProfilPage";
 import { UtilisateursListPage } from "@/pages/utilisateurs/UtilisateursListPage";
 import { useAuthStore } from "@/stores/authStore";
 
-function PrivateRoute(): React.JSX.Element {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  if (!isAuthenticated) {
-    return <Navigate to={ROUTES.login} replace />;
-  }
-  return <Outlet />;
-}
-
-function PublicRoute(): React.JSX.Element {
+function LoginPageGate(): React.JSX.Element {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
   if (isAuthenticated) {
-    return (
-      <Navigate
-        to={role === "platform_owner" ? ROUTES.platformDashboard : ROUTES.dashboard}
-        replace
-      />
-    );
+    return <Navigate to={getPostLoginRoute(role)} replace />;
+  }
+  return <LoginPage />;
+}
+
+function AdminLoginPageGate(): React.JSX.Element {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const role = useAuthStore((s) => s.user?.role);
+  if (isAuthenticated) {
+    return <Navigate to={getPostLoginRoute(role)} replace />;
+  }
+  return <AdminLoginPage />;
+}
+
+function TenantRoute(): React.JSX.Element {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const role = useAuthStore((s) => s.user?.role);
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTES.login} replace />;
+  }
+  if (role === "platform_owner") {
+    return <Navigate to={ROUTES.platformDashboard} replace />;
   }
   return <Outlet />;
 }
 
 function PlatformRoute(): React.JSX.Element {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTES.adminLogin} replace />;
+  }
   if (role !== "platform_owner") {
     return <Navigate to={ROUTES.dashboard} replace />;
   }
   return <Outlet />;
 }
 
-function EstablishmentRoute(): React.JSX.Element {
-  const role = useAuthStore((s) => s.user?.role);
-  if (role !== "promoteur" && role !== "directeur") {
-    return <Navigate to={ROUTES.dashboard} replace />;
-  }
-  return <Outlet />;
-}
-
-function PedagogieRoute(): React.JSX.Element {
-  const role = useAuthStore((s) => s.user?.role);
-  if (role !== "promoteur" && role !== "directeur" && role !== "secretaire") {
-    return <Navigate to={ROUTES.dashboard} replace />;
-  }
-  return <Outlet />;
-}
-
-function FinanceRoute(): React.JSX.Element {
-  const role = useAuthStore((s) => s.user?.role);
-  if (
-    role !== "promoteur" &&
-    role !== "comptable" &&
-    role !== "secretaire" &&
-    role !== "directeur"
-  ) {
-    return <Navigate to={ROUTES.dashboard} replace />;
-  }
-  return <Outlet />;
-}
-
-function ReportingRoute(): React.JSX.Element {
-  const role = useAuthStore((s) => s.user?.role);
-  if (
-    role !== "promoteur" &&
-    role !== "directeur" &&
-    role !== "comptable" &&
-    role !== "secretaire"
-  ) {
-    return <Navigate to={ROUTES.dashboard} replace />;
-  }
-  return <Outlet />;
-}
-
-function UtilisateursRoute(): React.JSX.Element {
-  const role = useAuthStore((s) => s.user?.role);
-  if (role !== "promoteur") {
-    return <Navigate to={ROUTES.dashboard} replace />;
-  }
-  return <Outlet />;
-}
-
 export const router = createBrowserRouter([
+  { path: ROUTES.login, element: <LoginPageGate /> },
+  { path: ROUTES.adminLogin, element: <AdminLoginPageGate /> },
   {
-    element: <PublicRoute />,
-    children: [{ path: ROUTES.login, element: <LoginPage /> }],
-  },
-  {
-    element: <PrivateRoute />,
+    path: "/",
+    element: <TenantRoute />,
     children: [
       {
         element: <AppLayout />,
         children: [
-          { path: ROUTES.dashboard, element: <DashboardPage /> },
-          { path: ROUTES.profil, element: <ProfilPage /> },
-          { path: ROUTES.eleves, element: <ElevesListPage /> },
-          { path: ROUTES.elevesAbsences, element: <AbsencesPage /> },
-          { path: ROUTES.eleveDossier, element: <EleveDossierPage /> },
-          { path: ROUTES.elevesInscrire, element: <InscriptionPage /> },
+          { id: "app-index", index: true, element: <Navigate to="/dashboard" replace /> },
+          { id: "dashboard", path: "dashboard", element: <DashboardPage /> },
+
           {
-            element: <FinanceRoute />,
+            id: "etablissement",
+            path: "etablissement",
+            element: <EtablissementLayout />,
             children: [
               {
-                element: <FinanceLayout />,
-                children: [
-                  { path: ROUTES.financePaiements, element: <PaiementsPage /> },
-                  { path: ROUTES.financeFrais, element: <FraisScolairesPage /> },
-                  { path: ROUTES.financeImpayes, element: <ImpayesPage /> },
-                  { path: ROUTES.financeTransactions, element: <TransactionsPage /> },
-                  { path: ROUTES.financeDepenses, element: <DepensesPage /> },
-                  { path: ROUTES.financeSalaires, element: <SalairesPage /> },
-                  { path: ROUTES.financeCaisse, element: <CaissePage /> },
-                  {
-                    path: ROUTES.financeTableauBord,
-                    element: <TableauBordFinancierPage />,
-                  },
-                ],
+                id: "etablissement-index",
+                index: true,
+                element: <Navigate to="annees" replace />,
+              },
+              { id: "etablissement-annees", path: "annees", element: <AnneesPage /> },
+              { id: "etablissement-periodes", path: "periodes", element: <PeriodesPage /> },
+              { id: "etablissement-cycles", path: "cycles", element: <CyclesPage /> },
+              { id: "etablissement-niveaux", path: "niveaux", element: <NiveauxPage /> },
+              { id: "etablissement-classes", path: "classes", element: <ClassesPage /> },
+              { id: "etablissement-matieres", path: "matieres", element: <MatieresPage /> },
+              {
+                id: "etablissement-config-notation",
+                path: "config-notation",
+                element: <ConfigNotationPage />,
               },
             ],
           },
+
+          { id: "eleves-inscrire", path: "eleves/inscrire", element: <InscriptionPage /> },
+          { id: "eleves-absences", path: "eleves/absences", element: <AbsencesPage /> },
           {
-            element: <PlatformRoute />,
-            children: [
-              { path: ROUTES.platformDashboard, element: <PlatformDashboardPage /> },
-              { path: ROUTES.platformTenants, element: <TenantsListPage /> },
-              { path: ROUTES.platformTenantsCreate, element: <TenantCreatePage /> },
-              { path: ROUTES.platformPlans, element: <PlansPage /> },
-              { path: ROUTES.platformAudit, element: <AuditLogsPage /> },
-            ],
+            id: "eleves-dossier",
+            path: "eleves/:eleveId/dossier",
+            element: <EleveDossierPage />,
           },
+          { id: "eleves", path: "eleves", element: <ElevesListPage /> },
+
           {
-            element: <EstablishmentRoute />,
+            id: "pedagogie",
+            path: "pedagogie",
+            element: <PedagogieLayout />,
             children: [
+              { id: "pedagogie-index", index: true, element: <Navigate to="notes" replace /> },
+              { id: "pedagogie-notes", path: "notes", element: <SaisieNotesPage /> },
+              { id: "pedagogie-bulletins", path: "bulletins", element: <BulletinsPage /> },
+              { id: "pedagogie-resultats", path: "resultats", element: <ResultatsClassePage /> },
               {
-                element: <EtablissementLayout />,
-                children: [
-                  { path: ROUTES.etablissementAnnees, element: <AnneesPage /> },
-                  { path: ROUTES.etablissementPeriodes, element: <PeriodesPage /> },
-                  { path: ROUTES.etablissementCycles, element: <CyclesPage /> },
-                  { path: ROUTES.etablissementNiveaux, element: <NiveauxPage /> },
-                  { path: ROUTES.etablissementClasses, element: <ClassesPage /> },
-                  { path: ROUTES.etablissementMatieres, element: <MatieresPage /> },
-                  {
-                    path: ROUTES.etablissementConfigNotation,
-                    element: <ConfigNotationPage />,
-                  },
-                ],
+                id: "pedagogie-historique",
+                path: "historique",
+                element: <HistoriqueNotesPage />,
               },
             ],
           },
+
           {
-            element: <PedagogieRoute />,
+            id: "finance",
+            path: "finance",
+            element: <FinanceLayout />,
             children: [
+              { id: "finance-index", index: true, element: <Navigate to="paiements" replace /> },
+              { id: "finance-paiements", path: "paiements", element: <PaiementsPage /> },
+              { id: "finance-frais", path: "frais", element: <FraisScolairesPage /> },
+              { id: "finance-impayes", path: "impayes", element: <ImpayesPage /> },
+              { id: "finance-transactions", path: "transactions", element: <TransactionsPage /> },
+              { id: "finance-depenses", path: "depenses", element: <DepensesPage /> },
+              { id: "finance-salaires", path: "salaires", element: <SalairesPage /> },
+              { id: "finance-caisse", path: "caisse", element: <CaissePage /> },
               {
-                element: <PedagogieLayout />,
-                children: [
-                  { path: ROUTES.pedagogieNotes, element: <SaisieNotesPage /> },
-                  { path: ROUTES.pedagogieBulletins, element: <BulletinsPage /> },
-                  { path: ROUTES.pedagogieResultats, element: <ResultatsClassePage /> },
-                  { path: ROUTES.pedagogieHistorique, element: <HistoriqueNotesPage /> },
-                ],
+                id: "finance-tableau-bord",
+                path: "tableau-bord",
+                element: <TableauBordFinancierPage />,
               },
             ],
           },
+
           {
-            element: <UtilisateursRoute />,
-            children: [{ path: ROUTES.utilisateurs, element: <UtilisateursListPage /> }],
-          },
-          {
-            element: <ReportingRoute />,
+            id: "reporting",
+            path: "reporting",
+            element: <ReportingLayout />,
             children: [
               {
-                element: <ReportingLayout />,
-                children: [
-                  { path: ROUTES.reportingTableauBord, element: <TableauBordPage /> },
-                  { path: ROUTES.reportingStatistiques, element: <StatistiquesPage /> },
-                  { path: ROUTES.reportingExports, element: <ExportsPage /> },
-                  { path: ROUTES.reportingImpressions, element: <ImpressionsPage /> },
-                ],
+                id: "reporting-index",
+                index: true,
+                element: <Navigate to="tableau-bord" replace />,
               },
+              {
+                id: "reporting-tableau-bord",
+                path: "tableau-bord",
+                element: <TableauBordPage />,
+              },
+              {
+                id: "reporting-statistiques",
+                path: "statistiques",
+                element: <StatistiquesPage />,
+              },
+              { id: "reporting-exports", path: "exports", element: <ExportsPage /> },
+              { id: "reporting-impressions", path: "impressions", element: <ImpressionsPage /> },
             ],
           },
+
+          { id: "utilisateurs", path: "utilisateurs", element: <UtilisateursListPage /> },
+          { id: "profil", path: "profil", element: <ProfilPage /> },
         ],
       },
     ],
   },
   {
-    path: "/",
+    path: ROUTES.platformDashboard,
+    element: <PlatformRoute />,
+    children: [
+      {
+        element: <PlatformLayout />,
+        children: [
+          { index: true, element: <PlatformDashboardPage /> },
+          { path: "tenants", element: <TenantsListPage /> },
+          { path: "tenants/nouveau", element: <TenantCreatePage /> },
+          { path: "plans", element: <PlansPage /> },
+          { path: "audit", element: <AuditLogsPage /> },
+          { path: "profil", element: <ProfilPage /> },
+        ],
+      },
+    ],
+  },
+  {
+    path: "*",
     element: (
       <Navigate
         to={
           useAuthStore.getState().isAuthenticated
-            ? useAuthStore.getState().user?.role === "platform_owner"
-              ? ROUTES.platformDashboard
-              : ROUTES.dashboard
+            ? getPostLoginRoute(useAuthStore.getState().user?.role)
             : ROUTES.login
         }
         replace
       />
     ),
   },
-  { path: "*", element: <Navigate to={ROUTES.dashboard} replace /> },
 ]);

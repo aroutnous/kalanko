@@ -25,7 +25,7 @@ export interface Tenant {
 }
 
 export interface LoginPayload {
-  tenant_slug: string;
+  tenant_slug?: string;
   email: string;
   password: string;
 }

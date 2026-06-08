@@ -36,12 +36,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   login: async (payload) => {
-    const { data } = await api.post<LoginResponse>("/auth/login", payload);
+    const { data } = await api.post<LoginResponse>("/auth/login", {
+      email: payload.email,
+      password: payload.password,
+      tenant_slug: payload.tenant_slug ?? "",
+    });
     setStoredToken(data.access_token);
-    sessionStorage.setItem(SESSION_KEYS.tenantSlug, data.tenant_slug);
+    if (data.tenant_slug) {
+      sessionStorage.setItem(SESSION_KEYS.tenantSlug, data.tenant_slug);
+    } else {
+      sessionStorage.removeItem(SESSION_KEYS.tenantSlug);
+    }
     set({
       token: data.access_token,
-      tenant: { slug: data.tenant_slug },
+      tenant: data.tenant_slug ? { slug: data.tenant_slug } : null,
       isAuthenticated: true,
     });
     await get().fetchProfile();

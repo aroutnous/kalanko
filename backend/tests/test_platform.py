@@ -44,7 +44,7 @@ async def _platform_owner_headers(
         json={
             "email": email,
             "password": TEST_PASSWORD,
-            "tenant_slug": tenant.slug,
+            "tenant_slug": "",
         },
         headers=unique_ip_headers,
     )
