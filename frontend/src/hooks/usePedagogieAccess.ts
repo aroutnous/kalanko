@@ -19,19 +19,26 @@ export function usePedagogieAccess(): PedagogieAccess {
   const role = useAuthStore((s) => s.user?.role ?? "secretaire");
   const hasPermission = useHasPermission();
 
+  const canGenererBulletins = hasPermission("bulletins.generer");
+  const canValiderBulletins = hasPermission("bulletins.valider");
+  const canPublierBulletins = hasPermission("bulletins.publier");
+
   return {
     role,
-    canAccessNotes: hasPermission("notes.read") || hasPermission("notes.write"),
+    canAccessNotes:
+      hasPermission("notes.consulter") || hasPermission("notes.saisir"),
     canAccessBulletins:
-      hasPermission("bulletins.read") ||
-      hasPermission("bulletins.write") ||
-      hasPermission("bulletins.validate"),
-    canAccessResultats: hasPermission("notes.read") || hasPermission("bulletins.read"),
-    canAccessHistorique: hasPermission("notes.read"),
-    canSaveNotes: hasPermission("notes.write"),
-    canGenerateBulletins: hasPermission("bulletins.write"),
-    canLoadBulletins: hasPermission("bulletins.read") || hasPermission("bulletins.write"),
-    canValidateBulletins: hasPermission("bulletins.validate"),
-    canPublishBulletins: hasPermission("bulletins.publish"),
+      canGenererBulletins || canValiderBulletins || canPublierBulletins,
+    canAccessResultats:
+      hasPermission("notes.consulter") ||
+      hasPermission("resultats.consulter") ||
+      canGenererBulletins,
+    canAccessHistorique: hasPermission("notes.consulter"),
+    canSaveNotes: hasPermission("notes.saisir"),
+    canGenerateBulletins: canGenererBulletins,
+    canLoadBulletins:
+      canGenererBulletins || canValiderBulletins || canPublierBulletins,
+    canValidateBulletins: canValiderBulletins,
+    canPublishBulletins: canPublierBulletins,
   };
 }

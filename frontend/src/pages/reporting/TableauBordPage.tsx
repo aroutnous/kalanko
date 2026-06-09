@@ -23,8 +23,14 @@ function monthKey(dateStr: string): string {
 export function TableauBordPage(): React.JSX.Element {
   const hasPermission = useHasPermission();
 
+  const canStats =
+    hasPermission("statistiques.pedagogie") ||
+    hasPermission("statistiques.finance");
+
   const canViewReporting =
-    hasPermission("rapports.read") || hasPermission("statistiques.read");
+    hasPermission("rapports.financiers") || canStats;
+
+  const canConsultPaiements = hasPermission("paiements.consulter");
 
   const { data, isLoading } = useQuery({
     queryKey: ["reporting-tableau-bord"],
@@ -42,7 +48,7 @@ export function TableauBordPage(): React.JSX.Element {
       const { data } = await api.get<AnneeScolaire>(ETABLISSEMENT_API.anneeActive);
       return data;
     },
-    enabled: hasPermission("statistiques.read"),
+    enabled: canStats,
   });
 
   const { data: stats } = useQuery({
@@ -53,7 +59,7 @@ export function TableauBordPage(): React.JSX.Element {
       });
       return data;
     },
-    enabled: Boolean(anneeActive?.id) && hasPermission("statistiques.read"),
+    enabled: Boolean(anneeActive?.id) && canStats,
   });
 
   const sixMonthsAgo = useMemo(() => {
@@ -72,7 +78,7 @@ export function TableauBordPage(): React.JSX.Element {
       });
       return data;
     },
-    enabled: hasPermission("paiements.read"),
+    enabled: canConsultPaiements || hasPermission("paiements.historique"),
   });
 
   const { data: depenses = [] } = useQuery({
@@ -84,7 +90,7 @@ export function TableauBordPage(): React.JSX.Element {
       );
       return data;
     },
-    enabled: hasPermission("depenses.read"),
+    enabled: hasPermission("depenses.consulter"),
   });
 
   const chartData = useMemo((): FinanceChartDatum[] => {
@@ -113,13 +119,13 @@ export function TableauBordPage(): React.JSX.Element {
     const d = data.donnees;
     const items: KpiItem[] = [];
 
-    if (hasPermission("eleves.read")) {
+    if (hasPermission("eleves.consulter")) {
       items.push({ label: "Élèves", value: String(d.nb_eleves ?? 0), color: "blue" });
     }
-    if (hasPermission("classes.read")) {
+    if (hasPermission("classes.consulter")) {
       items.push({ label: "Classes", value: String(d.nb_classes ?? 0), color: "blue" });
     }
-    if (hasPermission("paiements.read") || hasPermission("statistiques.read")) {
+    if (canConsultPaiements || canStats) {
       items.push({
         label: "Taux paiement",
         value: `${Number(d.taux_paiement ?? 0).toFixed(1)} %`,
@@ -131,31 +137,34 @@ export function TableauBordPage(): React.JSX.Element {
         color: "amber",
       });
     }
-    if (hasPermission("statistiques.read") || hasPermission("notes.read")) {
+    if (canStats || hasPermission("notes.consulter")) {
       items.push({
         label: "Taux réussite",
         value: `${Number(d.taux_reussite ?? 0).toFixed(1)} %`,
         color: "green",
       });
     }
-    if (hasPermission("bulletins.read")) {
+    if (
+      hasPermission("bulletins.generer") ||
+      hasPermission("bulletins.valider")
+    ) {
       items.push({
         label: "Bulletins validés",
         value: String(d.nb_bulletins_valides ?? 0),
         color: "blue",
       });
     }
-    if (hasPermission("absences.read")) {
+    if (hasPermission("absences.consulter")) {
       items.push({ label: "Absences", value: String(d.nb_absences ?? 0), color: "red" });
     }
-    if (hasPermission("eleves.write")) {
+    if (hasPermission("eleves.inscrire")) {
       items.push({
         label: "Inscriptions du jour",
         value: String(d.inscriptions_jour ?? 0),
         color: "blue",
       });
     }
-    if (hasPermission("paiements.read")) {
+    if (canConsultPaiements) {
       items.push({
         label: "Paiements du jour",
         value: String(d.paiements_jour ?? 0),
@@ -172,7 +181,7 @@ export function TableauBordPage(): React.JSX.Element {
         color: "blue",
       });
     }
-    if (hasPermission("depenses.read")) {
+    if (hasPermission("depenses.consulter")) {
       items.push({
         label: "Dépenses semaine",
         value: `${Number(d.depenses_semaine ?? 0).toLocaleString("fr-FR")} FCFA`,
@@ -181,7 +190,7 @@ export function TableauBordPage(): React.JSX.Element {
     }
 
     return items;
-  }, [data, hasPermission]);
+  }, [data, hasPermission, canConsultPaiements, canStats]);
 
   const topClasses = useMemo(() => {
     if (!stats) return [];
@@ -201,11 +210,14 @@ export function TableauBordPage(): React.JSX.Element {
 
   if (isLoading || !data) return <LoadingSpinner />;
 
+  const canEnregistrerPaiements = hasPermission("paiements.enregistrer");
+  const canInscrireEleves = hasPermission("eleves.inscrire");
+
   return (
     <div className="space-y-6">
       {kpis.length > 0 ? <KpiGrid items={kpis} /> : null}
 
-      {hasPermission("paiements.read") && chartData.length > 0 ? (
+      {canConsultPaiements && chartData.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Évolution mensuelle (recettes)</CardTitle>
@@ -216,7 +228,7 @@ export function TableauBordPage(): React.JSX.Element {
         </Card>
       ) : null}
 
-      {hasPermission("statistiques.read") && topClasses.length > 0 ? (
+      {canStats && topClasses.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Top 5 classes (effectifs)</CardTitle>
@@ -227,7 +239,7 @@ export function TableauBordPage(): React.JSX.Element {
         </Card>
       ) : null}
 
-      {hasPermission("depenses.read") && hasPermission("paiements.read") ? (
+      {hasPermission("depenses.consulter") && canConsultPaiements ? (
         <Card>
           <CardHeader>
             <CardTitle>Trésorerie</CardTitle>
@@ -238,23 +250,23 @@ export function TableauBordPage(): React.JSX.Element {
         </Card>
       ) : null}
 
-      {hasPermission("eleves.write") || hasPermission("paiements.write") ? (
+      {canInscrireEleves || canEnregistrerPaiements ? (
         <Card>
           <CardHeader>
             <CardTitle>Actions récentes</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {hasPermission("eleves.write") ? (
+            {canInscrireEleves ? (
               <p>{Number(data.donnees.inscriptions_jour ?? 0)} inscription(s) aujourd&apos;hui.</p>
             ) : null}
-            {hasPermission("paiements.write") ? (
+            {canEnregistrerPaiements ? (
               <p className="mt-2">
                 {Number(data.donnees.paiements_jour ?? 0)} paiement(s) enregistrés aujourd&apos;hui.
               </p>
             ) : null}
             {hasPermission("rapports.imprimer") ? (
               <p className="mt-2">
-                Consultez le module Impressions pour les documents à générer.
+                Consultez le Hub Documentaire pour les impressions.
               </p>
             ) : null}
           </CardContent>

@@ -15,13 +15,19 @@ export function useElevesAccess(): ElevesAccess {
   const role = useAuthStore((s) => s.user?.role ?? "secretaire");
   const hasPermission = useHasPermission();
 
+  const canManageEleves =
+    hasPermission("eleves.inscrire") || hasPermission("eleves.dossiers");
+
   return {
     role,
-    canRead: hasPermission("eleves.read"),
-    canManage: hasPermission("eleves.write"),
+    canRead: hasPermission("eleves.consulter"),
+    canManage: canManageEleves,
     canManageAbsences:
-      hasPermission("absences.read") || hasPermission("absences.write"),
-    canDelete: hasPermission("eleves.delete"),
-    canPrint: hasPermission("eleves.imprimer"),
+      hasPermission("absences.consulter") || hasPermission("absences.gerer"),
+    canDelete: hasPermission("eleves.dossiers"),
+    canPrint:
+      hasPermission("documents.cartes_scolaires") ||
+      hasPermission("documents.attestations") ||
+      hasPermission("documents.certificats"),
   };
 }

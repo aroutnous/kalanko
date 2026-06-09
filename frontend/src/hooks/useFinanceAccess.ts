@@ -23,23 +23,33 @@ export function useFinanceAccess(): FinanceAccess {
   const role = useAuthStore((s) => s.user?.role ?? "secretaire");
   const hasPermission = useHasPermission();
 
+  const canConsultPaiements = hasPermission("paiements.consulter");
+  const canEnregistrerPaiements = hasPermission("paiements.enregistrer");
+
   return {
     role,
-    canAccessPaiements: hasPermission("paiements.read") || hasPermission("paiements.write"),
-    canRegisterPaiements: hasPermission("paiements.write"),
-    canValidatePaiements: hasPermission("paiements.validate"),
-    canAccessFrais: hasPermission("frais.read") || hasPermission("frais.write"),
-    canManageFrais: hasPermission("frais.write"),
-    canAccessImpayes: hasPermission("paiements.read"),
-    canAccessTransactions: hasPermission("paiements.read"),
-    canAccessDepenses: hasPermission("depenses.read") || hasPermission("depenses.write"),
-    canManageDepenses: hasPermission("depenses.write"),
-    canAccessSalaires: hasPermission("salaires.read") || hasPermission("salaires.write"),
-    canManageSalaires: hasPermission("salaires.write"),
-    canAccessCaisse: hasPermission("paiements.read"),
+    canAccessPaiements: canConsultPaiements || canEnregistrerPaiements,
+    canRegisterPaiements: canEnregistrerPaiements,
+    canValidatePaiements: hasPermission("paiements.valider"),
+    canAccessFrais:
+      hasPermission("frais.consulter") || hasPermission("frais.gerer"),
+    canManageFrais: hasPermission("frais.gerer"),
+    canAccessImpayes:
+      canConsultPaiements || hasPermission("paiements.suivre_retard"),
+    canAccessTransactions:
+      canConsultPaiements || hasPermission("paiements.historique"),
+    canAccessDepenses:
+      hasPermission("depenses.consulter") || hasPermission("depenses.gerer"),
+    canManageDepenses: hasPermission("depenses.gerer"),
+    canAccessSalaires:
+      hasPermission("salaires.consulter") || hasPermission("salaires.gerer"),
+    canManageSalaires: hasPermission("salaires.gerer"),
+    canAccessCaisse:
+      hasPermission("caisse.consulter") || hasPermission("caisse.gerer"),
     canAccessTableauBord:
-      hasPermission("paiements.read") ||
-      hasPermission("depenses.read") ||
-      hasPermission("statistiques.read"),
+      canConsultPaiements ||
+      hasPermission("depenses.consulter") ||
+      hasPermission("statistiques.finance") ||
+      hasPermission("statistiques.pedagogie"),
   };
 }

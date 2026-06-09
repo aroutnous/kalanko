@@ -31,67 +31,77 @@ const KPI_CONFIG: Record<
     permissions: string[];
   }
 > = {
-  nb_eleves: { title: "Élèves inscrits", icon: Users, color: "blue", permissions: ["eleves.read"] },
-  nb_classes: { title: "Classes", icon: BookOpen, color: "purple", permissions: ["classes.read"] },
+  nb_eleves: {
+    title: "Élèves inscrits",
+    icon: Users,
+    color: "blue",
+    permissions: ["eleves.consulter"],
+  },
+  nb_classes: {
+    title: "Classes",
+    icon: BookOpen,
+    color: "purple",
+    permissions: ["classes.consulter"],
+  },
   taux_paiement: {
     title: "Taux de paiement (%)",
     icon: CreditCard,
     color: "green",
-    permissions: ["paiements.read", "statistiques.read"],
+    permissions: ["paiements.consulter", "statistiques.finance"],
   },
   ca_mois: {
     title: "CA du mois (FCFA)",
     icon: Wallet,
     color: "orange",
-    permissions: ["paiements.read", "statistiques.read"],
+    permissions: ["paiements.consulter", "statistiques.finance"],
   },
   taux_reussite: {
     title: "Taux de réussite (%)",
     icon: TrendingUp,
     color: "green",
-    permissions: ["statistiques.read", "notes.read"],
+    permissions: ["statistiques.pedagogie", "notes.consulter"],
   },
   nb_bulletins_valides: {
     title: "Bulletins validés",
     icon: Award,
     color: "blue",
-    permissions: ["bulletins.read"],
+    permissions: ["bulletins.generer", "bulletins.valider"],
   },
   nb_absences: {
     title: "Absences",
     icon: Users,
     color: "orange",
-    permissions: ["absences.read"],
+    permissions: ["absences.consulter"],
   },
   inscriptions_jour: {
     title: "Inscriptions aujourd'hui",
     icon: Users,
     color: "blue",
-    permissions: ["eleves.read"],
+    permissions: ["eleves.inscrire", "eleves.consulter"],
   },
   paiements_jour: {
     title: "Paiements aujourd'hui",
     icon: Wallet,
     color: "green",
-    permissions: ["paiements.read"],
+    permissions: ["paiements.consulter", "paiements.enregistrer"],
   },
   recettes_semaine: {
     title: "Recettes semaine (FCFA)",
     icon: Wallet,
     color: "green",
-    permissions: ["paiements.read", "statistiques.read"],
+    permissions: ["paiements.consulter", "statistiques.finance"],
   },
   depenses_semaine: {
     title: "Dépenses semaine (FCFA)",
     icon: CreditCard,
     color: "orange",
-    permissions: ["depenses.read", "statistiques.read"],
+    permissions: ["depenses.consulter", "statistiques.finance"],
   },
   solde_caisse: {
     title: "Solde caisse (FCFA)",
     icon: Wallet,
     color: "purple",
-    permissions: ["paiements.read", "statistiques.read"],
+    permissions: ["caisse.consulter", "statistiques.finance"],
   },
 };
 
@@ -99,7 +109,9 @@ export function DashboardPage(): React.JSX.Element {
   const hasPermission = useHasPermission();
 
   const canFetchDashboard =
-    hasPermission("rapports.read") || hasPermission("statistiques.read");
+    hasPermission("rapports.financiers") ||
+    hasPermission("statistiques.pedagogie") ||
+    hasPermission("statistiques.finance");
 
   const { data, isLoading } = useQuery({
     queryKey: ["tableau-bord", "dashboard"],

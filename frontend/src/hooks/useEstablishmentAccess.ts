@@ -13,10 +13,16 @@ export function useEstablishmentAccess(): EstablishmentAccess {
   const role = useAuthStore((s) => s.user?.role ?? "secretaire");
   const hasPermission = useHasPermission();
 
+  const canConfigure = hasPermission("etablissement.configurer");
+
   return {
     role,
-    canRead: hasPermission("classes.read") || hasPermission("classes.write"),
-    canManage: hasPermission("classes.write"),
-    canEditConfig: hasPermission("classes.write"),
+    canRead:
+      hasPermission("etablissement.acceder") ||
+      canConfigure ||
+      hasPermission("classes.consulter") ||
+      hasPermission("classes.gerer"),
+    canManage: canConfigure || hasPermission("classes.gerer"),
+    canEditConfig: canConfigure,
   };
 }

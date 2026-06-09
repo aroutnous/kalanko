@@ -14,13 +14,25 @@ export function useReportingAccess(): ReportingAccess {
   const role = useAuthStore((s) => s.user?.role ?? "secretaire");
   const hasPermission = useHasPermission();
 
+  const canStats =
+    hasPermission("statistiques.pedagogie") ||
+    hasPermission("statistiques.finance");
+
   return {
     role,
     canAccessTableauBord:
-      hasPermission("rapports.read") || hasPermission("statistiques.read"),
-    canAccessStatistiques: hasPermission("statistiques.read"),
-    canAccessExports: hasPermission("rapports.read"),
+      hasPermission("rapports.financiers") || canStats,
+    canAccessStatistiques: canStats,
+    canAccessExports:
+      hasPermission("rapports.financiers") ||
+      hasPermission("documents.rapports"),
     canAccessImpressions:
-      hasPermission("rapports.imprimer") || hasPermission("rapports.read"),
+      hasPermission("rapports.imprimer") ||
+      hasPermission("documents.bulletins") ||
+      hasPermission("documents.recus") ||
+      hasPermission("documents.cartes_scolaires") ||
+      hasPermission("documents.attestations") ||
+      hasPermission("documents.certificats") ||
+      hasPermission("documents.listes_classe"),
   };
 }
