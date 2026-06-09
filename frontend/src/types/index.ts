@@ -164,6 +164,23 @@ export interface Eleve {
   updated_at: string | null;
 }
 
+export type StatutEnseignant = "actif" | "inactif" | "conge";
+
+export interface Enseignant {
+  id: string;
+  tenant_id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone: string | null;
+  adresse: string | null;
+  statut: StatutEnseignant;
+  date_embauche: string | null;
+  salaire_base: number;
+  matieres: string[];
+  classes: string[];
+}
+
 export interface Classe {
   id: string;
   tenant_id: string;

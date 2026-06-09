@@ -6,14 +6,18 @@ import { FinanceLayout } from "@/components/finance/FinanceLayout";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PlatformLayout } from "@/components/layout/PlatformLayout";
 import { PedagogieLayout } from "@/components/pedagogie/PedagogieLayout";
-import { ReportingLayout } from "@/components/reporting/ReportingLayout";
 import { getPostLoginRoute } from "@/lib/auth-routes";
 import { ROUTES } from "@/lib/constants";
 import { AdminLoginPage } from "@/pages/auth/AdminLoginPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { AnneesPage } from "@/pages/etablissement/AnneesPage";
-import { ClassesPage } from "@/pages/etablissement/ClassesPage";
+import { ClassesPage as EtablissementClassesPage } from "@/pages/etablissement/ClassesPage";
+import { ClassesPage } from "@/pages/classes/ClassesPage";
+import { HubDocumentairePage } from "@/pages/documents/HubDocumentairePage";
+import { EnseignantsPage } from "@/pages/enseignants/EnseignantsPage";
+import { PaiementsPage } from "@/pages/paiements/PaiementsPage";
+import { RapportsPage } from "@/pages/rapports/RapportsPage";
 import { ConfigNotationPage } from "@/pages/etablissement/ConfigNotationPage";
 import { CyclesPage } from "@/pages/etablissement/CyclesPage";
 import { MatieresPage } from "@/pages/etablissement/MatieresPage";
@@ -27,7 +31,7 @@ import { CaissePage } from "@/pages/finance/CaissePage";
 import { DepensesPage } from "@/pages/finance/DepensesPage";
 import { FraisScolairesPage } from "@/pages/finance/FraisScolairesPage";
 import { ImpayesPage } from "@/pages/finance/ImpayesPage";
-import { PaiementsPage } from "@/pages/finance/PaiementsPage";
+import { PaiementsPage as FinancePaiementsPage } from "@/pages/finance/PaiementsPage";
 import { SalairesPage } from "@/pages/finance/SalairesPage";
 import { TableauBordFinancierPage } from "@/pages/finance/TableauBordFinancierPage";
 import { TransactionsPage } from "@/pages/finance/TransactionsPage";
@@ -40,22 +44,9 @@ import { PlansPage } from "@/pages/platform/PlansPage";
 import { PlatformDashboardPage } from "@/pages/platform/PlatformDashboardPage";
 import { TenantCreatePage } from "@/pages/platform/TenantCreatePage";
 import { TenantsListPage } from "@/pages/platform/TenantsListPage";
-import { ExportsPage } from "@/pages/reporting/ExportsPage";
-import { ImpressionsPage } from "@/pages/reporting/ImpressionsPage";
-import { StatistiquesPage } from "@/pages/reporting/StatistiquesPage";
-import { TableauBordPage } from "@/pages/reporting/TableauBordPage";
 import { ProfilPage } from "@/pages/utilisateurs/ProfilPage";
 import { UtilisateursListPage } from "@/pages/utilisateurs/UtilisateursListPage";
 import { useAuthStore } from "@/stores/authStore";
-
-function PlaceholderPage({ title }: { title: string }): React.JSX.Element {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="mt-2 text-muted-foreground">Page en cours de développement</p>
-    </div>
-  );
-}
 
 function LoginPageGate(): React.JSX.Element {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -126,7 +117,11 @@ export const router = createBrowserRouter([
               { id: "etablissement-periodes", path: "periodes", element: <PeriodesPage /> },
               { id: "etablissement-cycles", path: "cycles", element: <CyclesPage /> },
               { id: "etablissement-niveaux", path: "niveaux", element: <NiveauxPage /> },
-              { id: "etablissement-classes", path: "classes", element: <ClassesPage /> },
+              {
+                id: "etablissement-classes",
+                path: "classes",
+                element: <EtablissementClassesPage />,
+              },
               { id: "etablissement-matieres", path: "matieres", element: <MatieresPage /> },
               {
                 id: "etablissement-config-notation",
@@ -145,19 +140,11 @@ export const router = createBrowserRouter([
           },
           { id: "eleves", path: "eleves", element: <ElevesListPage /> },
 
-          {
-            id: "enseignants",
-            path: "enseignants",
-            element: <PlaceholderPage title="Enseignants" />,
-          },
+          { id: "enseignants", path: "enseignants", element: <EnseignantsPage /> },
           { id: "classes", path: "classes", element: <ClassesPage /> },
           { id: "absences", path: "absences", element: <AbsencesPage /> },
           { id: "paiements", path: "paiements", element: <PaiementsPage /> },
-          {
-            id: "documents",
-            path: "documents",
-            element: <PlaceholderPage title="Hub Documentaire" />,
-          },
+          { id: "documents", path: "documents", element: <HubDocumentairePage /> },
 
           {
             id: "pedagogie",
@@ -182,7 +169,11 @@ export const router = createBrowserRouter([
             element: <FinanceLayout />,
             children: [
               { id: "finance-index", index: true, element: <Navigate to="paiements" replace /> },
-              { id: "finance-paiements", path: "paiements", element: <PaiementsPage /> },
+              {
+                id: "finance-paiements",
+                path: "paiements",
+                element: <FinancePaiementsPage />,
+              },
               { id: "finance-frais", path: "frais", element: <FraisScolairesPage /> },
               { id: "finance-impayes", path: "impayes", element: <ImpayesPage /> },
               { id: "finance-transactions", path: "transactions", element: <TransactionsPage /> },
@@ -197,35 +188,12 @@ export const router = createBrowserRouter([
             ],
           },
 
-          {
-            id: "rapports",
-            path: "rapports",
-            element: <ReportingLayout />,
-            children: [
-              {
-                id: "rapports-index",
-                index: true,
-                element: <Navigate to="tableau-bord" replace />,
-              },
-              {
-                id: "rapports-tableau-bord",
-                path: "tableau-bord",
-                element: <TableauBordPage />,
-              },
-              {
-                id: "rapports-statistiques",
-                path: "statistiques",
-                element: <StatistiquesPage />,
-              },
-              { id: "rapports-exports", path: "exports", element: <ExportsPage /> },
-              { id: "rapports-impressions", path: "impressions", element: <ImpressionsPage /> },
-            ],
-          },
+          { id: "rapports", path: "rapports", element: <RapportsPage /> },
 
           {
             id: "reporting-legacy",
             path: "reporting/*",
-            element: <Navigate to={ROUTES.rapportsTableauBord} replace />,
+            element: <Navigate to={ROUTES.rapports} replace />,
           },
 
           { id: "utilisateurs", path: "utilisateurs", element: <UtilisateursListPage /> },
