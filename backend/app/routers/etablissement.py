@@ -34,7 +34,8 @@ from app.schemas.etablissement import (
     PeriodeUpdate,
 )
 from app.services.etablissement_service import EtablissementService
-from app.services.permissions import role_has_permission
+from app.models.enums import Permission
+from app.services.permissions import user_has_any_permission
 
 router = APIRouter(tags=["etablissement"])
 
@@ -51,10 +52,12 @@ def _client_ip(request: Request) -> str | None:
 def require_establishment_read() -> Callable[..., Utilisateur]:
     """Lecture : establishment.read ou establishment.manage."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "establishment.read")
-            or role_has_permission(current_user.role, "establishment.manage")
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.CLASSES_READ.value,
+            Permission.CLASSES_WRITE.value,
         ):
             from fastapi import HTTPException
 
@@ -68,7 +71,9 @@ def require_establishment_read() -> Callable[..., Utilisateur]:
 
 
 EstablishmentReader = Annotated[Utilisateur, Depends(require_establishment_read())]
-EstablishmentManager = Annotated[Utilisateur, Depends(require_permission("establishment.manage"))]
+EstablishmentManager = Annotated[
+    Utilisateur, Depends(require_permission(Permission.CLASSES_WRITE.value))
+]
 
 
 def _service(db: DbSession, user: Utilisateur, request: Request) -> EtablissementService:

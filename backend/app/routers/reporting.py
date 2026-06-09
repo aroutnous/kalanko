@@ -17,7 +17,8 @@ from app.schemas.reporting import (
 from app.services.export_service import ExportService
 from app.services.impression_service import ImpressionService
 from app.services.reporting_service import ReportingService
-from app.services.permissions import role_has_permission
+from app.models.enums import Permission
+from app.services.permissions import user_has_any_permission, user_has_permission
 
 router = APIRouter(prefix="/reporting", tags=["reporting"])
 
@@ -30,8 +31,13 @@ EXCEL_MEDIA = (
 def require_reports_read() -> Callable[..., Utilisateur]:
     """Stats et exports : reports.read (Directeur, Comptable, Promoteur)."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not role_has_permission(current_user.role, "reports.read"):
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.RAPPORTS_READ.value,
+            Permission.STATISTIQUES_READ.value,
+        ):
             from fastapi import HTTPException
 
             raise HTTPException(
@@ -46,10 +52,12 @@ def require_reports_read() -> Callable[..., Utilisateur]:
 def require_reports_impressions() -> Callable[..., Utilisateur]:
     """Impressions : reports.impressions ou reports.read."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "reports.impressions")
-            or role_has_permission(current_user.role, "reports.read")
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.RAPPORTS_IMPRIMER.value,
+            Permission.RAPPORTS_READ.value,
         ):
             from fastapi import HTTPException
 
@@ -63,12 +71,15 @@ def require_reports_impressions() -> Callable[..., Utilisateur]:
 
 
 def require_reports_dashboard() -> Callable[..., Utilisateur]:
-    """Tableau de bord : reports.read ou reports.impressions (Secrétaire inclus)."""
+    """Tableau de bord : rapports.read ou rapports.imprimer (Secrétaire inclus)."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "reports.read")
-            or role_has_permission(current_user.role, "reports.impressions")
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.RAPPORTS_READ.value,
+            Permission.RAPPORTS_IMPRIMER.value,
+            Permission.STATISTIQUES_READ.value,
         ):
             from fastapi import HTTPException
 

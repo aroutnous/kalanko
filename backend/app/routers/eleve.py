@@ -23,7 +23,8 @@ from app.schemas.eleve import (
     TransfertRequest,
 )
 from app.services.eleve_service import EleveService
-from app.services.permissions import role_has_permission
+from app.models.enums import Permission
+from app.services.permissions import user_has_any_permission, user_has_permission
 
 router = APIRouter(prefix="/eleves", tags=["eleves"])
 
@@ -42,11 +43,12 @@ def _client_ip(request: Request) -> str | None:
 def require_students_read() -> Callable[..., Utilisateur]:
     """Lecture : students.read, students.manage ou students.update."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "students.read")
-            or role_has_permission(current_user.role, "students.manage")
-            or role_has_permission(current_user.role, "students.update")
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.ELEVES_READ.value,
+            Permission.ELEVES_WRITE.value,
         ):
             from fastapi import HTTPException
 
@@ -62,11 +64,8 @@ def require_students_read() -> Callable[..., Utilisateur]:
 def require_students_write() -> Callable[..., Utilisateur]:
     """Écriture : students.manage ou students.update (Secrétaire, Directeur, Promoteur)."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "students.manage")
-            or role_has_permission(current_user.role, "students.update")
-        ):
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_permission(db, current_user, Permission.ELEVES_WRITE.value):
             from fastapi import HTTPException
 
             raise HTTPException(

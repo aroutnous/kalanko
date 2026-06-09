@@ -22,13 +22,25 @@ from app.schemas.auth import (
     UtilisateurCreate,
     UtilisateurCreateResponse,
     UtilisateurListItem,
+    UtilisateurPermissionsResponse,
+    UtilisateurPermissionsUpdate,
     UtilisateurStatutUpdate,
     UserProfile,
 )
 from app.models.auth import Utilisateur
+from app.models.enums import Permission
 from app.services.auth_service import AuthService
+from app.services.permissions import PermissionService
 
-UsersManager = Annotated[Utilisateur, Depends(require_permission("users.manage"))]
+UsersManager = Annotated[
+    Utilisateur, Depends(require_permission(Permission.UTILISATEURS_WRITE.value))
+]
+UsersPermissionsRead = Annotated[
+    Utilisateur, Depends(require_permission(Permission.UTILISATEURS_READ.value))
+]
+UsersPermissionsWrite = Annotated[
+    Utilisateur, Depends(require_permission(Permission.UTILISATEURS_WRITE.value))
+]
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -188,6 +200,53 @@ def update_utilisateur_statut(
         user_id,
         body.statut,
         ip_address=_client_ip(request),
+    )
+
+
+@router.get(
+    "/utilisateurs/{user_id}/permissions",
+    response_model=UtilisateurPermissionsResponse,
+)
+def get_utilisateur_permissions(
+    user_id: uuid.UUID,
+    current_user: UsersPermissionsRead,
+    db: DbSession,
+) -> UtilisateurPermissionsResponse:
+    """Liste les permissions dynamiques d'un utilisateur du tenant."""
+    permissions = PermissionService(db).get_permissions(
+        user_id, current_user.tenant_id
+    )
+    return UtilisateurPermissionsResponse(
+        utilisateur_id=user_id,
+        permissions=permissions,
+    )
+
+
+@router.put(
+    "/utilisateurs/{user_id}/permissions",
+    response_model=UtilisateurPermissionsResponse,
+)
+def set_utilisateur_permissions(
+    request: Request,
+    user_id: uuid.UUID,
+    body: UtilisateurPermissionsUpdate,
+    current_user: UsersPermissionsWrite,
+    db: DbSession,
+) -> UtilisateurPermissionsResponse:
+    """Remplace toutes les permissions d'un utilisateur."""
+    PermissionService(db).set_permissions(
+        user_id,
+        body.permissions,
+        current_user.id,
+        current_user.tenant_id,
+        ip_address=_client_ip(request),
+    )
+    permissions = PermissionService(db).get_permissions(
+        user_id, current_user.tenant_id
+    )
+    return UtilisateurPermissionsResponse(
+        utilisateur_id=user_id,
+        permissions=permissions,
     )
 
 

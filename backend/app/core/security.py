@@ -18,7 +18,7 @@ from app.core.database import DbSession
 from app.models.auth import Session as UserSession
 from app.models.auth import Utilisateur
 from app.models.enums import StatutUtilisateur
-from app.services.permissions import role_has_permission
+from app.services.permissions import PermissionService
 
 # cost=12 conforme aux règles projet (bcrypt)
 pwd_context = CryptContext(
@@ -174,8 +174,9 @@ def require_permission(permission: str) -> Callable[..., Any]:
 
     async def permission_checker(
         current_user: CurrentUser,
+        db: DbSession,
     ) -> Utilisateur:
-        if not role_has_permission(current_user.role, permission):
+        if not PermissionService(db).verifier_permission(current_user, permission):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Permission insuffisante",
@@ -201,7 +202,15 @@ def require_permission_decorator(permission: str) -> Callable[[Callable[..., Any
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Utilisateur non authentifié",
                 )
-            if not role_has_permission(current_user.role, permission):
+            db: Session | None = kwargs.get("db")
+            if db is None:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Session base de données requise",
+                )
+            if not PermissionService(db).verifier_permission(
+                current_user, permission
+            ):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Permission insuffisante",

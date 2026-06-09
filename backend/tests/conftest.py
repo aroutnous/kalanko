@@ -35,6 +35,7 @@ from app.models.auth import Utilisateur  # noqa: E402
 from app.models.enums import RoleUtilisateur, StatutTenant, StatutUtilisateur  # noqa: E402
 from app.models.tenant import Tenant  # noqa: E402
 from app.routers.auth import limiter  # noqa: E402
+from tests.permission_helpers import grant_role_permissions  # noqa: E402
 
 TEST_PASSWORD = "Password123!"
 TEST_SLUG = "ecole-test"
@@ -90,6 +91,7 @@ def seed_auth_data(db_session: Session) -> tuple[Tenant, Utilisateur]:
     )
     db_session.add(user)
     db_session.flush()
+    grant_role_permissions(db_session, user)
     db_session.refresh(tenant)
     db_session.refresh(user)
     return tenant, user

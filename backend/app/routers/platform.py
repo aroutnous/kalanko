@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from app.core.database import DbSession
 from app.core.security import require_permission
 from app.models.auth import Utilisateur
-from app.models.enums import StatutTenant
+from app.models.enums import Permission, StatutTenant
 from app.schemas.platform import (
     AbonnementResponse,
     AuditLogResponse,
@@ -28,7 +28,9 @@ from app.services.platform_service import PlatformService
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
-PlatformAdmin = Annotated[Utilisateur, Depends(require_permission("platform.admin"))]
+PlatformAdmin = Annotated[
+    Utilisateur, Depends(require_permission(Permission.PLATFORM_ADMIN.value))
+]
 
 
 def _client_ip(request: Request) -> str | None:

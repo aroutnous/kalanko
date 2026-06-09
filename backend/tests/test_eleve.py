@@ -16,6 +16,7 @@ from app.models.enums import (
 )
 from app.models.tenant import Tenant
 from tests.conftest import TEST_PASSWORD
+from tests.permission_helpers import grant_role_permissions
 
 
 async def _create_structure(
@@ -203,6 +204,8 @@ async def test_isolation_tenant_eleves(
         statut=StatutUtilisateur.ACTIF,
     )
     db_session.add(user_a)
+    db_session.flush()
+    grant_role_permissions(db_session, user_a)
 
     eleve_b = Eleve(
         tenant_id=tenant_b.id,

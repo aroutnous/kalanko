@@ -9,6 +9,7 @@ from app.models.enums import RoleUtilisateur, StatutTenant, StatutUtilisateur
 from app.models.etablissement import Cycle
 from app.models.tenant import Tenant
 from tests.conftest import TEST_PASSWORD
+from tests.permission_helpers import grant_role_permissions
 
 
 @pytest.mark.asyncio
@@ -203,6 +204,8 @@ async def test_isolation_tenant(
         statut=StatutUtilisateur.ACTIF,
     )
     db_session.add(user_a)
+    db_session.flush()
+    grant_role_permissions(db_session, user_a)
 
     cycle_b = Cycle(tenant_id=tenant_b.id, nom="Cycle B", ordre=1)
     db_session.add(cycle_b)

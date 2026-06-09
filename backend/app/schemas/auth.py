@@ -127,6 +127,15 @@ class UtilisateurStatutUpdate(BaseModel):
     statut: StatutUtilisateur
 
 
+class UtilisateurPermissionsResponse(BaseModel):
+    utilisateur_id: uuid.UUID
+    permissions: list[str]
+
+
+class UtilisateurPermissionsUpdate(BaseModel):
+    permissions: list[str] = Field(default_factory=list)
+
+
 class ChangePasswordRequest(BaseModel):
     ancien_mot_de_passe: str = Field(..., min_length=8, max_length=128)
     nouveau_mot_de_passe: str = Field(..., min_length=8, max_length=128)

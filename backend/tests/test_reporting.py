@@ -11,6 +11,7 @@ from app.models.enums import RoleUtilisateur, StatutTenant, StatutUtilisateur
 from app.models.tenant import Tenant
 from app.services.reporting_service import ReportingService
 from tests.conftest import TEST_PASSWORD
+from tests.permission_helpers import grant_role_permissions
 from tests.test_finance import _auth_headers_for_role, _create_finance_context
 
 
@@ -33,6 +34,7 @@ async def _headers_same_tenant(
     )
     db_session.add(user)
     db_session.flush()
+    grant_role_permissions(db_session, user)
 
     login = await client.post(
         "/auth/login",

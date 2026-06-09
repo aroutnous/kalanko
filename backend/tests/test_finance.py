@@ -21,6 +21,7 @@ from app.models.enums import (
 from app.models.tenant import Tenant
 from app.services.finance_service import FinanceService
 from tests.conftest import TEST_PASSWORD
+from tests.permission_helpers import grant_role_permissions
 
 
 async def _auth_headers_for_role(
@@ -49,6 +50,7 @@ async def _auth_headers_for_role(
     )
     db_session.add(user)
     db_session.flush()
+    grant_role_permissions(db_session, user)
     db_session.refresh(tenant)
 
     login = await client.post(
@@ -145,6 +147,7 @@ async def _headers_same_tenant(
     )
     db_session.add(user)
     db_session.flush()
+    grant_role_permissions(db_session, user)
 
     login = await client.post(
         "/auth/login",

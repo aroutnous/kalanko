@@ -26,7 +26,8 @@ from app.schemas.finance import (
     SituationFinanciereResponse,
 )
 from app.services.finance_service import FinanceService
-from app.services.permissions import role_has_permission
+from app.models.enums import Permission
+from app.services.permissions import user_has_any_permission, user_has_permission
 
 router = APIRouter(prefix="/finance", tags=["finance"])
 
@@ -43,11 +44,14 @@ def _client_ip(request: Request) -> str | None:
 def require_finance_read() -> Callable[..., Utilisateur]:
     """Lecture : finance.read, finance.manage ou finance.payments."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "finance.read")
-            or role_has_permission(current_user.role, "finance.manage")
-            or role_has_permission(current_user.role, "finance.payments")
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.PAIEMENTS_READ.value,
+            Permission.FRAIS_READ.value,
+            Permission.DEPENSES_READ.value,
+            Permission.SALAIRES_READ.value,
         ):
             from fastapi import HTTPException
 
@@ -63,11 +67,8 @@ def require_finance_read() -> Callable[..., Utilisateur]:
 def require_finance_payments() -> Callable[..., Utilisateur]:
     """Enregistrement paiement : finance.payments ou finance.manage."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "finance.payments")
-            or role_has_permission(current_user.role, "finance.manage")
-        ):
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_permission(db, current_user, Permission.PAIEMENTS_WRITE.value):
             from fastapi import HTTPException
 
             raise HTTPException(
@@ -82,8 +83,14 @@ def require_finance_payments() -> Callable[..., Utilisateur]:
 def require_finance_manage() -> Callable[..., Utilisateur]:
     """Opérations comptables : finance.manage (Comptable, Promoteur)."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not role_has_permission(current_user.role, "finance.manage"):
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.FRAIS_WRITE.value,
+            Permission.DEPENSES_WRITE.value,
+            Permission.SALAIRES_WRITE.value,
+        ):
             from fastapi import HTTPException
 
             raise HTTPException(
@@ -98,7 +105,9 @@ def require_finance_manage() -> Callable[..., Utilisateur]:
 FinanceReader = Annotated[Utilisateur, Depends(require_finance_read())]
 FinancePayments = Annotated[Utilisateur, Depends(require_finance_payments())]
 FinanceManager = Annotated[Utilisateur, Depends(require_finance_manage())]
-PaiementsReader = Annotated[Utilisateur, Depends(require_permission("paiements.read"))]
+PaiementsReader = Annotated[
+    Utilisateur, Depends(require_permission(Permission.PAIEMENTS_READ.value))
+]
 
 
 def _service(db: DbSession, user: Utilisateur, request: Request) -> FinanceService:
@@ -266,7 +275,7 @@ def get_situation_financiere(
 def get_liste_impayes(
     request: Request,
     db: DbSession,
-    user: Annotated[Utilisateur, Depends(require_permission("finance.read"))],
+    user: Annotated[Utilisateur, Depends(require_permission(Permission.PAIEMENTS_READ.value))],
     annee_id: uuid.UUID = Query(...),
 ) -> list[ImpayeResponse]:
     rows = _service(db, user, request).get_liste_impayes(annee_id)
@@ -277,7 +286,7 @@ def get_liste_impayes(
 def get_historique_transactions(
     request: Request,
     db: DbSession,
-    user: Annotated[Utilisateur, Depends(require_permission("finance.read"))],
+    user: Annotated[Utilisateur, Depends(require_permission(Permission.PAIEMENTS_READ.value))],
     date_debut: date | None = Query(default=None),
     date_fin: date | None = Query(default=None),
 ) -> list[PaiementResponse]:

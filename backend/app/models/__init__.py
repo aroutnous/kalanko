@@ -5,12 +5,13 @@ Nécessaire pour Alembic (metadata) et évite les imports circulaires.
 """
 
 from app.core.database import Base
-from app.models.auth import AuditLog, ResetToken, Session, Utilisateur
+from app.models.auth import AuditLog, ResetToken, Session, Utilisateur, UtilisateurPermission
 from app.models.base import BaseModel, TenantScopedModel
 from app.models.eleve import Absence, Eleve, Inscription
 from app.models.enums import (
     ModePaiement,
     StatutPaiement,
+    Permission,
     RoleUtilisateur,
     SexeEleve,
     StatutAbonnement,
@@ -53,6 +54,7 @@ __all__ = [
     "FactureTenant",
     "NotificationPlateforme",
     "Utilisateur",
+    "UtilisateurPermission",
     "Session",
     "AuditLog",
     "ResetToken",
@@ -74,6 +76,7 @@ __all__ = [
     "Depense",
     "Salaire",
     "CaisseJournaliere",
+    "Permission",
     "RoleUtilisateur",
     "StatutUtilisateur",
     "StatutTenant",

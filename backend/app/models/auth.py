@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,6 +55,51 @@ class Utilisateur(BaseModel):
     tenant: Mapped["Tenant"] = relationship(back_populates="utilisateurs")  # noqa: F821
     sessions: Mapped[list["Session"]] = relationship(back_populates="utilisateur")
     reset_tokens: Mapped[list["ResetToken"]] = relationship(back_populates="utilisateur")
+    permissions: Mapped[list["UtilisateurPermission"]] = relationship(
+        back_populates="utilisateur",
+        foreign_keys="UtilisateurPermission.utilisateur_id",
+        cascade="all, delete-orphan",
+    )
+
+
+class UtilisateurPermission(BaseModel):
+    """Permission dynamique accordée à un utilisateur tenant."""
+
+    __tablename__ = "utilisateur_permissions"
+    __table_args__ = (
+        UniqueConstraint(
+            "utilisateur_id",
+            "permission",
+            name="uq_utilisateur_permissions_user_permission",
+        ),
+        Index("ix_utilisateur_permissions_tenant_id", "tenant_id"),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("utilisateurs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    permission: Mapped[str] = mapped_column(String(100), nullable=False)
+    accordee_par: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("utilisateurs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+
+    utilisateur: Mapped["Utilisateur"] = relationship(
+        back_populates="permissions",
+        foreign_keys=[utilisateur_id],
+    )
+    accordeur: Mapped["Utilisateur"] = relationship(
+        foreign_keys=[accordee_par],
+    )
 
 
 class Session(BaseModel):

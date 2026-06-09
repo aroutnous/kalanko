@@ -16,7 +16,8 @@ from app.schemas.pedagogie import (
     ResultatsClasseResponse,
 )
 from app.services.pedagogie_service import PedagogieService
-from app.services.permissions import role_has_permission
+from app.models.enums import Permission
+from app.services.permissions import user_has_any_permission, user_has_permission
 
 router = APIRouter(prefix="/pedagogie", tags=["pedagogie"])
 
@@ -33,10 +34,12 @@ def _client_ip(request: Request) -> str | None:
 def require_pedagogy_read() -> Callable[..., Utilisateur]:
     """Lecture : pedagogy.read ou pedagogy.manage."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "pedagogy.read")
-            or role_has_permission(current_user.role, "pedagogy.manage")
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_any_permission(
+            db,
+            current_user,
+            Permission.NOTES_READ.value,
+            Permission.BULLETINS_READ.value,
         ):
             from fastapi import HTTPException
 
@@ -52,11 +55,8 @@ def require_pedagogy_read() -> Callable[..., Utilisateur]:
 def require_pedagogy_notes() -> Callable[..., Utilisateur]:
     """Saisie notes : pedagogy.notes ou pedagogy.manage."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "pedagogy.notes")
-            or role_has_permission(current_user.role, "pedagogy.manage")
-        ):
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_permission(db, current_user, Permission.NOTES_WRITE.value):
             from fastapi import HTTPException
 
             raise HTTPException(
@@ -71,11 +71,8 @@ def require_pedagogy_notes() -> Callable[..., Utilisateur]:
 def require_pedagogy_generate() -> Callable[..., Utilisateur]:
     """Génération bulletins : pedagogy.generate ou pedagogy.manage."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not (
-            role_has_permission(current_user.role, "pedagogy.generate")
-            or role_has_permission(current_user.role, "pedagogy.manage")
-        ):
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_permission(db, current_user, Permission.BULLETINS_WRITE.value):
             from fastapi import HTTPException
 
             raise HTTPException(
@@ -90,8 +87,10 @@ def require_pedagogy_generate() -> Callable[..., Utilisateur]:
 def require_pedagogy_manage() -> Callable[..., Utilisateur]:
     """Validation / publication : pedagogy.manage (Directeur, Promoteur)."""
 
-    async def checker(current_user: CurrentUser) -> Utilisateur:
-        if not role_has_permission(current_user.role, "pedagogy.manage"):
+    async def checker(current_user: CurrentUser, db: DbSession) -> Utilisateur:
+        if not user_has_permission(
+            db, current_user, Permission.BULLETINS_VALIDATE.value
+        ):
             from fastapi import HTTPException
 
             raise HTTPException(
