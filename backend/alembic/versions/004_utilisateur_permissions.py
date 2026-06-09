@@ -19,6 +19,47 @@ depends_on: str | Sequence[str] | None = None
 
 TABLE_NAME = "utilisateur_permissions"
 
+_ALTER_ENABLE_RLS = "ALTER TABLE utilisateur_permissions ENABLE ROW LEVEL SECURITY"
+_RLS_POLICY = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = current_schema()
+          AND tablename = 'utilisateur_permissions'
+          AND policyname = 'tenant_isolation'
+    ) THEN
+        CREATE POLICY tenant_isolation ON utilisateur_permissions
+        FOR ALL
+        USING (
+            tenant_id = current_setting('app.current_tenant', true)::uuid
+        )
+        WITH CHECK (
+            tenant_id = current_setting('app.current_tenant', true)::uuid
+        );
+    END IF;
+END $$;
+"""
+_SEED_PERMISSIONS_INSERT = """
+INSERT INTO utilisateur_permissions (
+    id, tenant_id, utilisateur_id, permission, accordee_par, created_at
+)
+SELECT
+    gen_random_uuid(),
+    u.tenant_id,
+    u.id,
+    :permission,
+    u.id,
+    now()
+FROM utilisateurs u
+WHERE u.role = :role
+  AND NOT EXISTS (
+      SELECT 1 FROM utilisateur_permissions up
+      WHERE up.utilisateur_id = u.id
+        AND up.permission = :permission
+  )
+"""
+
 
 def upgrade() -> None:
     op.create_table(
@@ -67,29 +108,8 @@ def upgrade() -> None:
         ["utilisateur_id"],
     )
 
-    op.execute(f"ALTER TABLE {TABLE_NAME} ENABLE ROW LEVEL SECURITY")
-    op.execute(
-        f"""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_policies
-                WHERE schemaname = current_schema()
-                  AND tablename = '{TABLE_NAME}'
-                  AND policyname = 'tenant_isolation'
-            ) THEN
-                CREATE POLICY tenant_isolation ON {TABLE_NAME}
-                FOR ALL
-                USING (
-                    tenant_id = current_setting('app.current_tenant', true)::uuid
-                )
-                WITH CHECK (
-                    tenant_id = current_setting('app.current_tenant', true)::uuid
-                );
-            END IF;
-        END $$;
-        """
-    )
+    op.execute(_ALTER_ENABLE_RLS)
+    op.execute(_RLS_POLICY)
 
     _seed_default_permissions()
 
@@ -152,27 +172,9 @@ def _seed_default_permissions() -> None:
     for role, permissions in role_permissions.items():
         for permission in permissions:
             op.execute(
-                sa.text(
-                    f"""
-                    INSERT INTO {TABLE_NAME} (
-                        id, tenant_id, utilisateur_id, permission, accordee_par, created_at
-                    )
-                    SELECT
-                        gen_random_uuid(),
-                        u.tenant_id,
-                        u.id,
-                        :permission,
-                        u.id,
-                        now()
-                    FROM utilisateurs u
-                    WHERE u.role = :role
-                      AND NOT EXISTS (
-                          SELECT 1 FROM {TABLE_NAME} up
-                          WHERE up.utilisateur_id = u.id
-                            AND up.permission = :permission
-                      )
-                    """
-                ).bindparams(role=role, permission=permission)
+                sa.text(_SEED_PERMISSIONS_INSERT).bindparams(
+                    role=role, permission=permission
+                )
             )
 
 
