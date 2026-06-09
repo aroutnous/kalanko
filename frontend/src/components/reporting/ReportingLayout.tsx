@@ -6,18 +6,18 @@ import { useReportingAccess } from "@/hooks/useReportingAccess";
 
 const ALL_TABS = [
   {
-    to: ROUTES.reportingTableauBord,
+    to: ROUTES.rapportsTableauBord,
     label: "Tableau de bord",
     key: "canAccessTableauBord" as const,
   },
   {
-    to: ROUTES.reportingStatistiques,
+    to: ROUTES.rapportsStatistiques,
     label: "Statistiques",
     key: "canAccessStatistiques" as const,
   },
-  { to: ROUTES.reportingExports, label: "Exports", key: "canAccessExports" as const },
+  { to: ROUTES.rapportsExports, label: "Exports", key: "canAccessExports" as const },
   {
-    to: ROUTES.reportingImpressions,
+    to: ROUTES.rapportsImpressions,
     label: "Impressions",
     key: "canAccessImpressions" as const,
   },

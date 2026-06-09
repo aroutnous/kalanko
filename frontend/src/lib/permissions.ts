@@ -1,129 +1,108 @@
-export type PermissionKey =
-  | "eleves.read"
-  | "eleves.write"
-  | "eleves.delete"
-  | "eleves.imprimer"
-  | "enseignants.read"
-  | "enseignants.write"
-  | "classes.read"
-  | "classes.write"
-  | "absences.read"
-  | "absences.write"
-  | "notes.read"
-  | "notes.write"
-  | "bulletins.read"
-  | "bulletins.write"
-  | "bulletins.validate"
-  | "bulletins.publish"
-  | "bulletins.imprimer"
-  | "paiements.read"
-  | "paiements.write"
-  | "paiements.validate"
-  | "paiements.imprimer"
-  | "frais.read"
-  | "frais.write"
-  | "salaires.read"
-  | "salaires.write"
-  | "depenses.read"
-  | "depenses.write"
-  | "rapports.read"
-  | "rapports.imprimer"
-  | "statistiques.read"
-  | "utilisateurs.read"
-  | "utilisateurs.write";
-
-export interface PermissionItem {
-  key: PermissionKey;
-  label: string;
-}
-
-export interface PermissionGroup {
-  title: string;
-  permissions: PermissionItem[];
-}
-
-export const PERMISSION_GROUPS: PermissionGroup[] = [
+export const PERMISSION_GROUPS = [
   {
-    title: "Élèves",
+    label: "Établissement",
     permissions: [
-      { key: "eleves.read", label: "Consulter les élèves" },
-      { key: "eleves.write", label: "Gérer les élèves" },
-      { key: "eleves.delete", label: "Supprimer un élève" },
-      { key: "eleves.imprimer", label: "Imprimer documents élève" },
+      { key: "etablissement.acceder", label: "Accéder à l'établissement" },
+      { key: "etablissement.configurer", label: "Configurer l'établissement" },
     ],
   },
   {
-    title: "Enseignants",
+    label: "Élèves",
     permissions: [
-      { key: "enseignants.read", label: "Consulter les enseignants" },
-      { key: "enseignants.write", label: "Gérer les enseignants" },
+      { key: "eleves.inscrire", label: "Inscrire les élèves" },
+      { key: "eleves.dossiers", label: "Gérer les dossiers élèves" },
+      { key: "eleves.consulter", label: "Consulter les élèves" },
     ],
   },
   {
-    title: "Classes",
+    label: "Enseignants",
     permissions: [
-      { key: "classes.read", label: "Consulter les classes" },
-      { key: "classes.write", label: "Gérer les classes" },
+      { key: "enseignants.consulter", label: "Consulter les enseignants" },
+      { key: "enseignants.gerer", label: "Gérer les enseignants" },
     ],
   },
   {
-    title: "Absences",
+    label: "Classes",
     permissions: [
-      { key: "absences.read", label: "Consulter les absences" },
-      { key: "absences.write", label: "Gérer les absences" },
+      { key: "classes.consulter", label: "Consulter les classes" },
+      { key: "classes.gerer", label: "Gérer les classes" },
     ],
   },
   {
-    title: "Notes & Bulletins",
+    label: "Absences",
     permissions: [
-      { key: "notes.read", label: "Consulter les notes" },
-      { key: "notes.write", label: "Saisir les notes" },
-      { key: "bulletins.read", label: "Consulter les bulletins" },
-      { key: "bulletins.write", label: "Gérer les bulletins" },
-      { key: "bulletins.validate", label: "Valider les bulletins" },
-      { key: "bulletins.publish", label: "Publier les bulletins" },
-      { key: "bulletins.imprimer", label: "Imprimer les bulletins" },
+      { key: "absences.consulter", label: "Consulter les absences" },
+      { key: "absences.gerer", label: "Gérer les absences" },
     ],
   },
   {
-    title: "Paiements",
+    label: "Pédagogie",
     permissions: [
-      { key: "paiements.read", label: "Consulter les paiements" },
-      { key: "paiements.write", label: "Enregistrer les paiements" },
-      { key: "paiements.validate", label: "Valider les paiements" },
-      { key: "paiements.imprimer", label: "Imprimer les reçus" },
+      { key: "notes.saisir", label: "Saisir les notes" },
+      { key: "notes.consulter", label: "Consulter les notes" },
+      { key: "bulletins.generer", label: "Générer les bulletins" },
+      { key: "bulletins.valider", label: "Valider les bulletins" },
+      { key: "bulletins.publier", label: "Publier les bulletins" },
+      { key: "resultats.consulter", label: "Consulter les résultats" },
     ],
   },
   {
-    title: "Finance",
+    label: "Paiements",
     permissions: [
-      { key: "frais.read", label: "Consulter les frais" },
-      { key: "frais.write", label: "Gérer les frais" },
-      { key: "salaires.read", label: "Consulter les salaires" },
-      { key: "salaires.write", label: "Gérer les salaires" },
-      { key: "depenses.read", label: "Consulter les dépenses" },
-      { key: "depenses.write", label: "Gérer les dépenses" },
+      { key: "paiements.enregistrer", label: "Enregistrer les paiements" },
+      { key: "paiements.consulter", label: "Consulter les paiements" },
+      { key: "paiements.valider", label: "Valider les paiements" },
+      { key: "paiements.suivre_retard", label: "Suivre les paiements en retard" },
+      { key: "paiements.historique", label: "Voir l'historique des paiements" },
     ],
   },
   {
-    title: "Rapports & Statistiques",
+    label: "Finance",
     permissions: [
-      { key: "rapports.read", label: "Consulter les rapports" },
+      { key: "frais.consulter", label: "Consulter les frais scolaires" },
+      { key: "frais.gerer", label: "Gérer les frais scolaires" },
+      { key: "salaires.consulter", label: "Consulter les salaires" },
+      { key: "salaires.gerer", label: "Gérer les salaires" },
+      { key: "depenses.consulter", label: "Consulter les dépenses" },
+      { key: "depenses.gerer", label: "Gérer les dépenses" },
+      { key: "caisse.consulter", label: "Consulter la caisse" },
+      { key: "caisse.gerer", label: "Gérer la caisse" },
+    ],
+  },
+  {
+    label: "Hub Documentaire",
+    permissions: [
+      { key: "documents.bulletins", label: "Imprimer les bulletins" },
+      { key: "documents.recus", label: "Imprimer les reçus" },
+      { key: "documents.cartes_scolaires", label: "Imprimer les cartes scolaires" },
+      { key: "documents.attestations", label: "Imprimer les attestations" },
+      { key: "documents.certificats", label: "Imprimer les certificats" },
+      { key: "documents.listes_classe", label: "Imprimer les listes de classe" },
+      { key: "documents.rapports", label: "Imprimer les rapports" },
+    ],
+  },
+  {
+    label: "Rapports & Statistiques",
+    permissions: [
+      { key: "statistiques.pedagogie", label: "Voir les statistiques pédagogiques" },
+      { key: "statistiques.finance", label: "Voir les statistiques financières" },
+      { key: "rapports.financiers", label: "Consulter les rapports financiers" },
       { key: "rapports.imprimer", label: "Imprimer les rapports" },
-      { key: "statistiques.read", label: "Voir les statistiques" },
     ],
   },
   {
-    title: "Administration",
+    label: "Utilisateurs",
     permissions: [
-      { key: "utilisateurs.read", label: "Consulter les utilisateurs" },
-      { key: "utilisateurs.write", label: "Gérer les utilisateurs" },
+      { key: "utilisateurs.consulter", label: "Consulter les utilisateurs" },
+      { key: "utilisateurs.gerer", label: "Gérer les utilisateurs" },
     ],
   },
-];
+] as const;
 
-export const ALL_PERMISSION_KEYS: PermissionKey[] = PERMISSION_GROUPS.flatMap(
-  (group) => group.permissions.map((p) => p.key),
+export type PermissionKey = string;
+
+export const ALL_PERMISSION_KEYS: string[] = PERMISSION_GROUPS.flatMap((group) =>
+  group.permissions.map((p) => p.key),
 );
 
 export function formatPermissionCount(count: number): string {

@@ -188,8 +188,8 @@ export function PermissionsModal({
             <ScrollArea className="max-h-[60vh] pr-2">
               <div className="space-y-5">
                 {PERMISSION_GROUPS.map((group) => (
-                  <section key={group.title} className="space-y-2">
-                    <h3 className="text-sm font-bold">{group.title}</h3>
+                  <section key={group.label} className="space-y-2">
+                    <h3 className="text-sm font-bold">{group.label}</h3>
                     <ul className="space-y-2">
                       {group.permissions.map((permission) => {
                         const inputId = `perm-${user.id}-${permission.key}`;

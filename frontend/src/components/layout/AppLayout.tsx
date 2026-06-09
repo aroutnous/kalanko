@@ -3,12 +3,15 @@ import {
   BookOpen,
   Building2,
   CalendarX,
+  CreditCard,
+  FileText,
   GraduationCap,
   LayoutDashboard,
   LogOut,
   School,
   User,
   UserCog,
+  Users,
   Wallet,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -38,7 +41,7 @@ export function AppLayout(): React.JSX.Element {
   const role = user?.role ?? "secretaire";
   const navReady = permissionsLoaded && user !== null;
 
-  const tenantNavItems: NavItem[] = [
+  const NAV_ITEMS: NavItem[] = [
     {
       to: ROUTES.dashboard,
       label: "Tableau de bord",
@@ -60,10 +63,25 @@ export function AppLayout(): React.JSX.Element {
       end: true,
     },
     {
-      to: ROUTES.elevesAbsences,
+      to: ROUTES.enseignants,
+      label: "Enseignants",
+      icon: Users,
+      show: menuAccess.showEnseignants,
+      end: true,
+    },
+    {
+      to: ROUTES.classes,
+      label: "Classes",
+      icon: School,
+      show: menuAccess.showClasses,
+      end: true,
+    },
+    {
+      to: ROUTES.absences,
       label: "Absences",
       icon: CalendarX,
       show: menuAccess.showAbsences,
+      end: true,
     },
     {
       to: ROUTES.pedagogieNotes,
@@ -72,16 +90,31 @@ export function AppLayout(): React.JSX.Element {
       show: menuAccess.showPedagogie,
     },
     {
-      to: ROUTES.financePaiements,
+      to: ROUTES.paiements,
+      label: "Paiements",
+      icon: CreditCard,
+      show: menuAccess.showPaiements,
+      end: true,
+    },
+    {
+      to: ROUTES.financeFrais,
       label: "Finance",
       icon: Wallet,
       show: menuAccess.showFinance,
     },
     {
-      to: ROUTES.reportingTableauBord,
-      label: "Reporting",
+      to: ROUTES.documents,
+      label: "Hub Documentaire",
+      icon: FileText,
+      show: menuAccess.showDocuments,
+      end: true,
+    },
+    {
+      to: ROUTES.rapports,
+      label: "Rapports",
       icon: BarChart3,
-      show: menuAccess.showReporting,
+      show: menuAccess.showRapports,
+      end: true,
     },
     {
       to: ROUTES.utilisateurs,
@@ -92,7 +125,7 @@ export function AppLayout(): React.JSX.Element {
     },
   ];
 
-  const visibleNav = tenantNavItems.filter((item) => item.show);
+  const visibleNav = NAV_ITEMS.filter((item) => item.show);
 
   const handleLogout = async (): Promise<void> => {
     await logout();

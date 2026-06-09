@@ -1,55 +1,96 @@
 import { useAuthStore } from "@/stores/authStore";
 
-export interface MenuAccess {
-  showEtablissement: boolean;
-  showEleves: boolean;
-  showAbsences: boolean;
-  showPedagogie: boolean;
-  showFinance: boolean;
-  showReporting: boolean;
-  showUtilisateurs: boolean;
-}
+export function useMenuAccess() {
+  const { user, hasPermission } = useAuthStore();
+  const isPromoteur = user?.role === "promoteur";
 
-function checkPermission(
-  userRole: string | undefined,
-  permissions: string[],
-  permission: string,
-): boolean {
-  if (userRole === "promoteur") return true;
-  if (permissions.includes("*")) return true;
-  return permissions.includes(permission);
-}
+  const has = (permission: string) => isPromoteur || hasPermission(permission);
 
-export function useMenuAccess(): MenuAccess {
-  const user = useAuthStore((s) => s.user);
-  const permissions = useAuthStore((s) => s.permissions);
-  const role = user?.role;
-  const isPromoteur = role === "promoteur";
-
-  const has = (permission: string): boolean =>
-    checkPermission(role, permissions, permission);
+  const hasAny = (permissions: string[]) =>
+    isPromoteur || permissions.some((p) => hasPermission(p));
 
   return {
-    showEtablissement:
-      isPromoteur || has("classes.read") || has("classes.write"),
-    showEleves: isPromoteur || has("eleves.read") || has("eleves.write"),
-    showAbsences:
-      isPromoteur || has("absences.read") || has("absences.write"),
-    showPedagogie:
-      isPromoteur ||
-      has("notes.read") ||
-      has("notes.write") ||
-      has("bulletins.read") ||
-      has("bulletins.validate"),
-    showFinance:
-      isPromoteur ||
-      has("paiements.read") ||
-      has("paiements.write") ||
-      has("frais.read") ||
-      has("salaires.read") ||
-      has("depenses.read"),
-    showReporting:
-      isPromoteur || has("rapports.read") || has("statistiques.read"),
-    showUtilisateurs: isPromoteur,
+    showEtablissement: hasAny([
+      "etablissement.acceder",
+      "etablissement.configurer",
+    ]),
+    showEleves: hasAny([
+      "eleves.inscrire",
+      "eleves.dossiers",
+      "eleves.consulter",
+    ]),
+    showEnseignants: hasAny([
+      "enseignants.consulter",
+      "enseignants.gerer",
+    ]),
+    showClasses: hasAny(["classes.consulter", "classes.gerer"]),
+    showAbsences: hasAny(["absences.consulter", "absences.gerer"]),
+    showPedagogie: hasAny([
+      "notes.saisir",
+      "notes.consulter",
+      "bulletins.generer",
+      "bulletins.valider",
+      "bulletins.publier",
+      "resultats.consulter",
+    ]),
+    showPaiements: hasAny([
+      "paiements.enregistrer",
+      "paiements.consulter",
+      "paiements.valider",
+      "paiements.suivre_retard",
+      "paiements.historique",
+    ]),
+    showFinance: hasAny([
+      "frais.consulter",
+      "frais.gerer",
+      "salaires.consulter",
+      "salaires.gerer",
+      "depenses.consulter",
+      "depenses.gerer",
+      "caisse.consulter",
+      "caisse.gerer",
+    ]),
+    showDocuments: hasAny([
+      "documents.bulletins",
+      "documents.recus",
+      "documents.cartes_scolaires",
+      "documents.attestations",
+      "documents.certificats",
+      "documents.listes_classe",
+      "documents.rapports",
+    ]),
+    showRapports: hasAny([
+      "statistiques.pedagogie",
+      "statistiques.finance",
+      "rapports.financiers",
+      "rapports.imprimer",
+    ]),
+    showUtilisateurs: hasAny([
+      "utilisateurs.consulter",
+      "utilisateurs.gerer",
+    ]),
+
+    can: {
+      etablissementConfigurer: has("etablissement.configurer"),
+      elevesInscrire: has("eleves.inscrire"),
+      elevesDossiers: has("eleves.dossiers"),
+      elevesConsulter: has("eleves.consulter"),
+      enseignantsGerer: has("enseignants.gerer"),
+      classesGerer: has("classes.gerer"),
+      absencesGerer: has("absences.gerer"),
+      notesSaisir: has("notes.saisir"),
+      bulletinsGenerer: has("bulletins.generer"),
+      bulletinsValider: has("bulletins.valider"),
+      bulletinsPublier: has("bulletins.publier"),
+      paiementsEnregistrer: has("paiements.enregistrer"),
+      paiementsValider: has("paiements.valider"),
+      fraisGerer: has("frais.gerer"),
+      salairesGerer: has("salaires.gerer"),
+      depensesGerer: has("depenses.gerer"),
+      caisseGerer: has("caisse.gerer"),
+      utilisateursGerer: has("utilisateurs.gerer"),
+    },
   };
 }
+
+export type MenuAccess = ReturnType<typeof useMenuAccess>;

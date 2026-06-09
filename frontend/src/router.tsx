@@ -48,6 +48,15 @@ import { ProfilPage } from "@/pages/utilisateurs/ProfilPage";
 import { UtilisateursListPage } from "@/pages/utilisateurs/UtilisateursListPage";
 import { useAuthStore } from "@/stores/authStore";
 
+function PlaceholderPage({ title }: { title: string }): React.JSX.Element {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold">{title}</h1>
+      <p className="mt-2 text-muted-foreground">Page en cours de développement</p>
+    </div>
+  );
+}
+
 function LoginPageGate(): React.JSX.Element {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
@@ -137,6 +146,20 @@ export const router = createBrowserRouter([
           { id: "eleves", path: "eleves", element: <ElevesListPage /> },
 
           {
+            id: "enseignants",
+            path: "enseignants",
+            element: <PlaceholderPage title="Enseignants" />,
+          },
+          { id: "classes", path: "classes", element: <ClassesPage /> },
+          { id: "absences", path: "absences", element: <AbsencesPage /> },
+          { id: "paiements", path: "paiements", element: <PaiementsPage /> },
+          {
+            id: "documents",
+            path: "documents",
+            element: <PlaceholderPage title="Hub Documentaire" />,
+          },
+
+          {
             id: "pedagogie",
             path: "pedagogie",
             element: <PedagogieLayout />,
@@ -175,28 +198,34 @@ export const router = createBrowserRouter([
           },
 
           {
-            id: "reporting",
-            path: "reporting",
+            id: "rapports",
+            path: "rapports",
             element: <ReportingLayout />,
             children: [
               {
-                id: "reporting-index",
+                id: "rapports-index",
                 index: true,
                 element: <Navigate to="tableau-bord" replace />,
               },
               {
-                id: "reporting-tableau-bord",
+                id: "rapports-tableau-bord",
                 path: "tableau-bord",
                 element: <TableauBordPage />,
               },
               {
-                id: "reporting-statistiques",
+                id: "rapports-statistiques",
                 path: "statistiques",
                 element: <StatistiquesPage />,
               },
-              { id: "reporting-exports", path: "exports", element: <ExportsPage /> },
-              { id: "reporting-impressions", path: "impressions", element: <ImpressionsPage /> },
+              { id: "rapports-exports", path: "exports", element: <ExportsPage /> },
+              { id: "rapports-impressions", path: "impressions", element: <ImpressionsPage /> },
             ],
+          },
+
+          {
+            id: "reporting-legacy",
+            path: "reporting/*",
+            element: <Navigate to={ROUTES.rapportsTableauBord} replace />,
           },
 
           { id: "utilisateurs", path: "utilisateurs", element: <UtilisateursListPage /> },
