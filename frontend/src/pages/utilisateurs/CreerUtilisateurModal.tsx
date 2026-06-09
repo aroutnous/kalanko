@@ -1,9 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import { Copy, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 import { FormModal } from "@/components/etablissement/FormModal";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -17,6 +15,7 @@ interface CreerUtilisateurModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  onUserCreated?: (user: UtilisateurCreateResponse) => void;
 }
 
 const INITIAL_FORM: UtilisateurCreatePayload = {
@@ -31,13 +30,10 @@ export function CreerUtilisateurModal({
   open,
   onClose,
   onCreated,
+  onUserCreated,
 }: CreerUtilisateurModalProps): React.JSX.Element {
   const toast = useToastStore((s) => s.show);
   const [form, setForm] = useState<UtilisateurCreatePayload>(INITIAL_FORM);
-  const [createdUser, setCreatedUser] = useState<UtilisateurCreateResponse | null>(
-    null,
-  );
-  const [showPassword, setShowPassword] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -58,75 +54,17 @@ export function CreerUtilisateurModal({
     },
     onSuccess: (data) => {
       onCreated();
-      if (data.mot_de_passe_temporaire) {
-        setCreatedUser(data);
-        toast("Utilisateur créé — copiez le mot de passe temporaire");
-        return;
-      }
-      toast("Utilisateur créé");
       setForm(INITIAL_FORM);
-      setCreatedUser(null);
       onClose();
+      onUserCreated?.(data);
     },
     onError: (err) => toast(getErrorMessage(err), "error"),
   });
 
   const handleClose = (): void => {
     setForm(INITIAL_FORM);
-    setCreatedUser(null);
-    setShowPassword(false);
     onClose();
   };
-
-  const handleCopyPassword = async (): Promise<void> => {
-    if (!createdUser?.mot_de_passe_temporaire) return;
-    try {
-      await navigator.clipboard.writeText(createdUser.mot_de_passe_temporaire);
-      toast("Mot de passe copié");
-    } catch {
-      toast("Impossible de copier le mot de passe", "error");
-    }
-  };
-
-  if (createdUser?.mot_de_passe_temporaire) {
-    return (
-      <FormModal
-        open={open}
-        title="Mot de passe temporaire"
-        onClose={handleClose}
-        onSubmit={handleClose}
-        submitLabel="J'ai noté le mot de passe"
-      >
-        <p className="text-sm text-muted-foreground">
-          L'utilisateur{" "}
-          <strong>
-            {createdUser.prenom} {createdUser.nom}
-          </strong>{" "}
-          a été créé. Ce mot de passe ne sera plus affiché.
-        </p>
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <code className="flex-1 break-all font-mono text-sm">
-            {showPassword
-              ? createdUser.mot_de_passe_temporaire
-              : "•".repeat(createdUser.mot_de_passe_temporaire.length)}
-          </code>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "Masquer" : "Afficher"}
-          >
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyPassword()}>
-            <Copy className="mr-1 h-4 w-4" />
-            Copier
-          </Button>
-        </div>
-      </FormModal>
-    );
-  }
 
   return (
     <FormModal

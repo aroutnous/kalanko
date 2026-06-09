@@ -66,6 +66,15 @@ export interface UtilisateurCreateResponse {
   mot_de_passe_temporaire: string | null;
 }
 
+export interface UtilisateurPermissionsResponse {
+  utilisateur_id: string;
+  permissions: string[];
+}
+
+export interface UtilisateurPermissionsUpdate {
+  permissions: string[];
+}
+
 export interface ChangePasswordPayload {
   ancien_mot_de_passe: string;
   nouveau_mot_de_passe: string;

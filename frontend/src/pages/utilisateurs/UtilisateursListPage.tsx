@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Shield } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { PermissionsModal, type PermissionsModalUser } from "@/components/utilisateurs/PermissionsModal";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -10,11 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { api, getErrorMessage } from "@/lib/api";
 import { ROLE_LABELS } from "@/lib/constants";
+import { formatPermissionCount } from "@/lib/permissions";
 import { UTILISATEURS_API } from "@/lib/utilisateurs-api";
 import { CreerUtilisateurModal } from "@/pages/utilisateurs/CreerUtilisateurModal";
 import { useAuthStore } from "@/stores/authStore";
 import { useToastStore } from "@/stores/toastStore";
-import type { RoleUtilisateur, StatutUtilisateur, UtilisateurListItem } from "@/types";
+import type {
+  RoleUtilisateur,
+  StatutUtilisateur,
+  UtilisateurCreateResponse,
+  UtilisateurListItem,
+  UtilisateurPermissionsResponse,
+} from "@/types";
 
 const PAGE_SIZE = 10;
 
@@ -39,6 +47,10 @@ export function UtilisateursListPage(): React.JSX.Element {
   const [statutFilter, setStatutFilter] = useState("");
   const [page, setPage] = useState(1);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [permissionsUser, setPermissionsUser] = useState<PermissionsModalUser | null>(null);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [createdMessage, setCreatedMessage] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
 
   const { data: utilisateurs = [], isLoading } = useQuery({
     queryKey: ["utilisateurs"],
@@ -60,6 +72,33 @@ export function UtilisateursListPage(): React.JSX.Element {
     const start = (page - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
+
+  const permissionQueries = useQueries({
+    queries: paginated
+      .filter((user) => user.role !== "promoteur")
+      .map((user) => ({
+        queryKey: ["utilisateurs", user.id, "permissions"],
+        queryFn: async () => {
+          const { data } = await api.get<UtilisateurPermissionsResponse>(
+            UTILISATEURS_API.permissions(user.id),
+          );
+          return data;
+        },
+      })),
+  });
+
+  const permissionCountByUserId = useMemo(() => {
+    const counts = new Map<string, number>();
+    paginated
+      .filter((user) => user.role !== "promoteur")
+      .forEach((user, index) => {
+        const query = permissionQueries[index];
+        if (query?.data) {
+          counts.set(user.id, query.data.permissions.length);
+        }
+      });
+    return counts;
+  }, [paginated, permissionQueries]);
 
   const statutMutation = useMutation({
     mutationFn: async ({
@@ -91,6 +130,38 @@ export function UtilisateursListPage(): React.JSX.Element {
     },
   });
 
+  const openPermissionsModal = (user: UtilisateurListItem): void => {
+    setPermissionsUser({
+      id: user.id,
+      nom: user.nom,
+      prenom: user.prenom,
+      role: user.role,
+    });
+    setCreatedMessage(false);
+    setTemporaryPassword(null);
+    setPermissionsOpen(true);
+  };
+
+  const handleUserCreated = (user: UtilisateurCreateResponse): void => {
+    setPermissionsUser({
+      id: user.id,
+      nom: user.nom,
+      prenom: user.prenom,
+      role: user.role,
+    });
+    setCreatedMessage(true);
+    setTemporaryPassword(user.mot_de_passe_temporaire);
+    setPermissionsOpen(true);
+    toast("Utilisateur créé. Configurez maintenant ses permissions.");
+  };
+
+  const closePermissionsModal = (): void => {
+    setPermissionsOpen(false);
+    setPermissionsUser(null);
+    setCreatedMessage(false);
+    setTemporaryPassword(null);
+  };
+
   const columns: DataTableColumn<UtilisateurListItem>[] = [
     { key: "nom", header: "Nom", render: (r) => r.nom },
     { key: "prenom", header: "Prénom", render: (r) => r.prenom },
@@ -106,6 +177,20 @@ export function UtilisateursListPage(): React.JSX.Element {
       render: (r) => <StatutBadge statut={r.statut} />,
     },
     {
+      key: "permissions",
+      header: "Permissions",
+      render: (r) => {
+        if (r.role === "promoteur") {
+          return <Badge variant="muted">Toutes</Badge>;
+        }
+        const count = permissionCountByUserId.get(r.id);
+        if (count === undefined) {
+          return <span className="text-xs text-muted-foreground">…</span>;
+        }
+        return <Badge variant="default">{formatPermissionCount(count)}</Badge>;
+      },
+    },
+    {
       key: "actions",
       header: "Actions",
       render: (r) => {
@@ -114,19 +199,31 @@ export function UtilisateursListPage(): React.JSX.Element {
         const disabled = isSelf || isPromoteur || actionId === r.id;
 
         return (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() =>
-              statutMutation.mutate({
-                id: r.id,
-                statut: r.statut === "actif" ? "inactif" : "actif",
-              })
-            }
-          >
-            {r.statut === "actif" ? "Désactiver" : "Activer"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {!isPromoteur ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openPermissionsModal(r)}
+              >
+                <Shield className="mr-1 h-4 w-4" />
+                Permissions
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              onClick={() =>
+                statutMutation.mutate({
+                  id: r.id,
+                  statut: r.statut === "actif" ? "inactif" : "actif",
+                })
+              }
+            >
+              {r.statut === "actif" ? "Désactiver" : "Activer"}
+            </Button>
+          </div>
         );
       },
     },
@@ -194,6 +291,15 @@ export function UtilisateursListPage(): React.JSX.Element {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={() => void queryClient.invalidateQueries({ queryKey: ["utilisateurs"] })}
+        onUserCreated={handleUserCreated}
+      />
+
+      <PermissionsModal
+        open={permissionsOpen}
+        onClose={closePermissionsModal}
+        user={permissionsUser}
+        createdMessage={createdMessage}
+        temporaryPassword={temporaryPassword}
       />
     </div>
   );
