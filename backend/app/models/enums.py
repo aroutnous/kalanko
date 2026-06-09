@@ -120,6 +120,12 @@ class StatutEleve(str, enum.Enum):
     EXCLU = "exclu"
 
 
+class StatutEnseignant(str, enum.Enum):
+    ACTIF = "actif"
+    INACTIF = "inactif"
+    CONGE = "conge"
+
+
 class StatutInscription(str, enum.Enum):
     INSCRIT = "inscrit"
     TRANSFERE = "transfere"

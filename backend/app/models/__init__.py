@@ -8,6 +8,7 @@ from app.core.database import Base
 from app.models.auth import AuditLog, ResetToken, Session, Utilisateur, UtilisateurPermission
 from app.models.base import BaseModel, TenantScopedModel
 from app.models.eleve import Absence, Eleve, Inscription
+from app.models.enseignant import Enseignant, EnseignantClasse, EnseignantMatiere
 from app.models.enums import (
     ModePaiement,
     StatutPaiement,
@@ -17,6 +18,7 @@ from app.models.enums import (
     StatutAbonnement,
     StatutBulletin,
     StatutEleve,
+    StatutEnseignant,
     StatutFacture,
     StatutInscription,
     StatutSalaire,
@@ -68,6 +70,9 @@ __all__ = [
     "Eleve",
     "Inscription",
     "Absence",
+    "Enseignant",
+    "EnseignantMatiere",
+    "EnseignantClasse",
     "Note",
     "Bulletin",
     "BulletinLigne",
@@ -85,6 +90,7 @@ __all__ = [
     "TypeNotification",
     "SexeEleve",
     "StatutEleve",
+    "StatutEnseignant",
     "StatutInscription",
     "TypeAbsence",
     "StatutBulletin",
