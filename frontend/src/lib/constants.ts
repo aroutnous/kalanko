@@ -26,6 +26,7 @@ export const ROUTES = {
   platformDashboard: "/platform",
   platformTenants: "/platform/tenants",
   platformTenantsCreate: "/platform/tenants/nouveau",
+  platformTenantUtilisateurs: "/platform/tenants/:tenantId/utilisateurs",
   platformPlans: "/platform/plans",
   platformAudit: "/platform/audit",
   etablissementAnnees: "/etablissement/annees",

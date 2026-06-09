@@ -1,8 +1,14 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Shield } from "lucide-react";
+import { KeyRound, Pencil, Plus, Shield, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { PermissionsModal, type PermissionsModalUser } from "@/components/utilisateurs/PermissionsModal";
+import { TempPasswordDisplay } from "@/components/utilisateurs/TempPasswordDisplay";
+import {
+  UtilisateurEditModal,
+  type UtilisateurEditValues,
+} from "@/components/utilisateurs/UtilisateurEditModal";
+import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -19,6 +25,7 @@ import { useToastStore } from "@/stores/toastStore";
 import type {
   RoleUtilisateur,
   StatutUtilisateur,
+  MotDePasseTemporaireResponse,
   UtilisateurCreateResponse,
   UtilisateurListItem,
   UtilisateurPermissionsResponse,
@@ -51,6 +58,9 @@ export function UtilisateursListPage(): React.JSX.Element {
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [createdMessage, setCreatedMessage] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<UtilisateurListItem | null>(null);
+  const [deleteUser, setDeleteUser] = useState<UtilisateurListItem | null>(null);
+  const [resetPassword, setResetPassword] = useState<string | null>(null);
 
   const { data: utilisateurs = [], isLoading } = useQuery({
     queryKey: ["utilisateurs"],
@@ -99,6 +109,46 @@ export function UtilisateursListPage(): React.JSX.Element {
       });
     return counts;
   }, [paginated, permissionQueries]);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(UTILISATEURS_API.detail(id));
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["utilisateurs"] });
+      toast("Utilisateur supprimé");
+      setDeleteUser(null);
+    },
+    onError: (err) => toast(getErrorMessage(err), "error"),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.post<MotDePasseTemporaireResponse>(
+        UTILISATEURS_API.resetPassword(id),
+      );
+      return data.mot_de_passe_temporaire;
+    },
+    onSuccess: (password) => {
+      setResetPassword(password);
+      setActionId(null);
+      toast("Mot de passe réinitialisé");
+    },
+    onError: (err) => {
+      toast(getErrorMessage(err), "error");
+      setActionId(null);
+    },
+  });
+
+  const handleEditUser = async (values: UtilisateurEditValues): Promise<void> => {
+    if (!editUser) return;
+    await api.put(UTILISATEURS_API.detail(editUser.id), {
+      nom: values.nom,
+      prenom: values.prenom,
+      email: values.email,
+    });
+    void queryClient.invalidateQueries({ queryKey: ["utilisateurs"] });
+  };
 
   const statutMutation = useMutation({
     mutationFn: async ({
@@ -201,14 +251,45 @@ export function UtilisateursListPage(): React.JSX.Element {
         return (
           <div className="flex flex-wrap gap-2">
             {!isPromoteur ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openPermissionsModal(r)}
-              >
-                <Shield className="mr-1 h-4 w-4" />
-                Permissions
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditUser(r)}
+                  title="Modifier"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={actionId === r.id}
+                  onClick={() => {
+                    setActionId(r.id);
+                    resetMutation.mutate(r.id);
+                  }}
+                  title="Reset mot de passe"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openPermissionsModal(r)}
+                >
+                  <Shield className="mr-1 h-4 w-4" />
+                  Permissions
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isSelf}
+                  onClick={() => setDeleteUser(r)}
+                  title="Supprimer"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </>
             ) : null}
             <Button
               variant="outline"
@@ -245,6 +326,15 @@ export function UtilisateursListPage(): React.JSX.Element {
           </Button>
         }
       />
+
+      {resetPassword ? (
+        <div className="mb-4">
+          <TempPasswordDisplay
+            password={resetPassword}
+            onExpire={() => setResetPassword(null)}
+          />
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <Select
@@ -301,6 +391,40 @@ export function UtilisateursListPage(): React.JSX.Element {
         createdMessage={createdMessage}
         temporaryPassword={temporaryPassword}
       />
+
+      <UtilisateurEditModal
+        open={editUser !== null}
+        title="Modifier l'utilisateur"
+        initial={{
+          nom: editUser?.nom ?? "",
+          prenom: editUser?.prenom ?? "",
+          email: editUser?.email ?? "",
+        }}
+        onClose={() => setEditUser(null)}
+        onSubmit={handleEditUser}
+      />
+
+      <Dialog open={deleteUser !== null} onClose={() => setDeleteUser(null)}>
+        <h2 className="mb-2 pr-8 text-lg font-semibold">Confirmer la suppression</h2>
+        <p className="text-sm text-muted-foreground">
+          Supprimer {deleteUser?.prenom} {deleteUser?.nom} ? Cette action est
+          irréversible.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteUser(null)}>
+            Annuler
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={deleteMutation.isPending}
+            onClick={() => {
+              if (deleteUser) deleteMutation.mutate(deleteUser.id);
+            }}
+          >
+            {deleteMutation.isPending ? "Suppression…" : "Supprimer"}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

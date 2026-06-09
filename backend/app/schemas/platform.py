@@ -29,10 +29,31 @@ class TenantCreate(BaseModel):
 
 class TenantUpdate(BaseModel):
     nom: str | None = Field(default=None, min_length=2, max_length=255)
-    email: EmailStr | None = None
+    email_contact: EmailStr | None = None
     telephone: str | None = Field(default=None, max_length=50)
     adresse: str | None = None
     logo_url: str | None = Field(default=None, max_length=512)
+    slug: str | None = Field(default=None, min_length=2, max_length=100)
+
+
+class UtilisateurUpdate(BaseModel):
+    nom: str | None = Field(default=None, min_length=1, max_length=100)
+    prenom: str | None = Field(default=None, min_length=1, max_length=100)
+    email: EmailStr | None = None
+
+
+class UtilisateurTenantUpdate(UtilisateurUpdate):
+    role: RoleUtilisateur | None = None
+
+    @model_validator(mode="after")
+    def role_not_platform_owner(self) -> "UtilisateurTenantUpdate":
+        if self.role == RoleUtilisateur.PLATFORM_OWNER:
+            raise ValueError("Le rôle platform_owner n'est pas modifiable via ce endpoint")
+        return self
+
+
+class ResetPasswordResponse(BaseModel):
+    mot_de_passe_temporaire: str
 
 
 class TenantResponse(BaseModel):

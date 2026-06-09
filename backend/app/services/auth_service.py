@@ -18,7 +18,7 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
-from app.models.auth import ResetToken, Session as UserSession, Utilisateur
+from app.models.auth import ResetToken, Session as UserSession, Utilisateur, UtilisateurPermission
 from app.models.enums import RoleUtilisateur, StatutTenant, StatutUtilisateur
 from app.models.tenant import Tenant
 from app.schemas.auth import (
@@ -28,6 +28,7 @@ from app.schemas.auth import (
     UtilisateurCreate,
     UtilisateurCreateResponse,
     UtilisateurListItem,
+    UtilisateurUpdate,
     UserProfile,
 )
 from app.services.audit_service import log_audit
@@ -637,6 +638,186 @@ class AuthService:
             table_cible="utilisateurs",
             enregistrement_id=user.id,
         )
+
+    def _reassign_permissions_accordees(
+        self, utilisateur_id: uuid.UUID, nouveau_accordeur: uuid.UUID
+    ) -> None:
+        self.db.query(UtilisateurPermission).filter(
+            UtilisateurPermission.accordee_par == utilisateur_id
+        ).update(
+            {UtilisateurPermission.accordee_par: nouveau_accordeur},
+            synchronize_session=False,
+        )
+
+    def _supprimer_utilisateur_rows(self, utilisateur: Utilisateur) -> None:
+        self.db.query(UserSession).filter(
+            UserSession.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.query(ResetToken).filter(
+            ResetToken.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.query(UtilisateurPermission).filter(
+            UtilisateurPermission.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.delete(utilisateur)
+
+    def update_tenant_user(
+        self,
+        actor: Utilisateur,
+        user_id: uuid.UUID,
+        data: UtilisateurUpdate,
+        ip_address: str | None,
+    ) -> UtilisateurListItem:
+        """Modifie nom, prénom ou email d'un utilisateur du tenant."""
+        set_tenant_context(self.db, actor.tenant_id)
+        utilisateur = (
+            self.db.query(Utilisateur)
+            .filter(
+                Utilisateur.id == user_id,
+                Utilisateur.tenant_id == actor.tenant_id,
+            )
+            .first()
+        )
+        if utilisateur is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Utilisateur introuvable",
+            )
+
+        changes: dict[str, str] = {}
+        if data.nom is not None:
+            utilisateur.nom = data.nom
+            changes["nom"] = data.nom
+        if data.prenom is not None:
+            utilisateur.prenom = data.prenom
+            changes["prenom"] = data.prenom
+        if data.email is not None:
+            email = str(data.email).lower()
+            conflict = (
+                self.db.query(Utilisateur)
+                .filter(
+                    Utilisateur.tenant_id == actor.tenant_id,
+                    Utilisateur.email == email,
+                    Utilisateur.id != user_id,
+                )
+                .first()
+            )
+            if conflict is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email déjà utilisé pour cet établissement",
+                )
+            utilisateur.email = email
+            changes["email"] = email
+
+        self.db.commit()
+        self.db.refresh(utilisateur)
+
+        log_audit(
+            self.db,
+            action="auth.user.update",
+            resultat="success",
+            tenant_id=actor.tenant_id,
+            utilisateur_id=actor.id,
+            ip_address=ip_address,
+            table_cible="utilisateurs",
+            enregistrement_id=utilisateur.id,
+            details=changes or None,
+        )
+        return UtilisateurListItem.model_validate(utilisateur)
+
+    def delete_tenant_user(
+        self,
+        actor: Utilisateur,
+        user_id: uuid.UUID,
+        ip_address: str | None,
+    ) -> None:
+        """Supprime un utilisateur du tenant (sauf promoteur et soi-même)."""
+        if actor.id == user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vous ne pouvez pas supprimer votre propre compte",
+            )
+
+        set_tenant_context(self.db, actor.tenant_id)
+        utilisateur = (
+            self.db.query(Utilisateur)
+            .filter(
+                Utilisateur.id == user_id,
+                Utilisateur.tenant_id == actor.tenant_id,
+            )
+            .first()
+        )
+        if utilisateur is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Utilisateur introuvable",
+            )
+
+        if utilisateur.role == RoleUtilisateur.PROMOTEUR:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Le promoteur ne peut pas être supprimé",
+            )
+
+        email = utilisateur.email
+        self._reassign_permissions_accordees(utilisateur.id, actor.id)
+        self._supprimer_utilisateur_rows(utilisateur)
+        self.db.commit()
+
+        log_audit(
+            self.db,
+            action="auth.user.delete",
+            resultat="success",
+            tenant_id=actor.tenant_id,
+            utilisateur_id=actor.id,
+            ip_address=ip_address,
+            table_cible="utilisateurs",
+            enregistrement_id=user_id,
+            details={"email": email},
+        )
+
+    def reset_tenant_user_password(
+        self,
+        actor: Utilisateur,
+        user_id: uuid.UUID,
+        ip_address: str | None,
+    ) -> str:
+        """Génère un mot de passe temporaire pour un utilisateur du tenant."""
+        set_tenant_context(self.db, actor.tenant_id)
+        utilisateur = (
+            self.db.query(Utilisateur)
+            .filter(
+                Utilisateur.id == user_id,
+                Utilisateur.tenant_id == actor.tenant_id,
+            )
+            .first()
+        )
+        if utilisateur is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Utilisateur introuvable",
+            )
+
+        mot_de_passe = self._generer_mot_de_passe_temporaire()
+        utilisateur.mot_de_passe_hash = hash_password(mot_de_passe)
+        self.db.query(UserSession).filter(
+            UserSession.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.commit()
+
+        log_audit(
+            self.db,
+            action="auth.user.reset_password",
+            resultat="success",
+            tenant_id=actor.tenant_id,
+            utilisateur_id=actor.id,
+            ip_address=ip_address,
+            table_cible="utilisateurs",
+            enregistrement_id=utilisateur.id,
+            details={"email": utilisateur.email},
+        )
+        return mot_de_passe
 
     def get_current_user_profile(
         self,

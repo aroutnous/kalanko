@@ -66,6 +66,25 @@ export interface UtilisateurCreateResponse {
   mot_de_passe_temporaire: string | null;
 }
 
+export interface UtilisateurTenantItem {
+  id: string;
+  tenant_id: string;
+  email: string;
+  nom: string;
+  prenom: string;
+  role: RoleUtilisateur;
+}
+
+export interface MotDePasseTemporaireResponse {
+  mot_de_passe_temporaire: string;
+}
+
+export interface UtilisateurUpdatePayload {
+  nom?: string;
+  prenom?: string;
+  email?: string;
+}
+
 export interface UtilisateurPermissionsResponse {
   utilisateur_id: string;
   permissions: string[];

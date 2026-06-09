@@ -123,6 +123,16 @@ class UtilisateurCreateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UtilisateurUpdate(BaseModel):
+    nom: str | None = Field(default=None, min_length=1, max_length=100)
+    prenom: str | None = Field(default=None, min_length=1, max_length=100)
+    email: EmailStr | None = None
+
+
+class UtilisateurMotDePasseResponse(BaseModel):
+    mot_de_passe_temporaire: str
+
+
 class UtilisateurStatutUpdate(BaseModel):
     statut: StatutUtilisateur
 

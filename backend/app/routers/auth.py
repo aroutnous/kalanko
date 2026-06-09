@@ -22,9 +22,11 @@ from app.schemas.auth import (
     UtilisateurCreate,
     UtilisateurCreateResponse,
     UtilisateurListItem,
+    UtilisateurMotDePasseResponse,
     UtilisateurPermissionsResponse,
     UtilisateurPermissionsUpdate,
     UtilisateurStatutUpdate,
+    UtilisateurUpdate,
     UserProfile,
 )
 from app.models.auth import Utilisateur
@@ -200,6 +202,57 @@ def create_utilisateur(
         body,
         ip_address=_client_ip(request),
     )
+
+
+@router.put("/utilisateurs/{user_id}", response_model=UtilisateurListItem)
+def update_utilisateur(
+    request: Request,
+    user_id: uuid.UUID,
+    body: UtilisateurUpdate,
+    current_user: UsersManager,
+    db: DbSession,
+) -> UtilisateurListItem:
+    """Modifie nom, prénom ou email d'un utilisateur du tenant."""
+    return AuthService(db).update_tenant_user(
+        current_user,
+        user_id,
+        body,
+        ip_address=_client_ip(request),
+    )
+
+
+@router.delete("/utilisateurs/{user_id}", status_code=204)
+def delete_utilisateur(
+    request: Request,
+    user_id: uuid.UUID,
+    current_user: UsersManager,
+    db: DbSession,
+) -> None:
+    """Supprime un utilisateur du tenant."""
+    AuthService(db).delete_tenant_user(
+        current_user,
+        user_id,
+        ip_address=_client_ip(request),
+    )
+
+
+@router.post(
+    "/utilisateurs/{user_id}/reset-password",
+    response_model=UtilisateurMotDePasseResponse,
+)
+def reset_utilisateur_password(
+    request: Request,
+    user_id: uuid.UUID,
+    current_user: UsersManager,
+    db: DbSession,
+) -> UtilisateurMotDePasseResponse:
+    """Réinitialise le mot de passe d'un utilisateur (affiché une seule fois)."""
+    mot_de_passe = AuthService(db).reset_tenant_user_password(
+        current_user,
+        user_id,
+        ip_address=_client_ip(request),
+    )
+    return UtilisateurMotDePasseResponse(mot_de_passe_temporaire=mot_de_passe)
 
 
 @router.put("/utilisateurs/{user_id}/statut", response_model=UtilisateurListItem)

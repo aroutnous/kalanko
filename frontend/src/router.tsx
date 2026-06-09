@@ -43,6 +43,7 @@ import { AuditLogsPage } from "@/pages/platform/AuditLogsPage";
 import { PlansPage } from "@/pages/platform/PlansPage";
 import { PlatformDashboardPage } from "@/pages/platform/PlatformDashboardPage";
 import { TenantCreatePage } from "@/pages/platform/TenantCreatePage";
+import { TenantUtilisateursPage } from "@/pages/platform/TenantUtilisateursPage";
 import { TenantsListPage } from "@/pages/platform/TenantsListPage";
 import { ProfilPage } from "@/pages/utilisateurs/ProfilPage";
 import { UtilisateursListPage } from "@/pages/utilisateurs/UtilisateursListPage";
@@ -212,6 +213,10 @@ export const router = createBrowserRouter([
           { index: true, element: <PlatformDashboardPage /> },
           { path: "tenants", element: <TenantsListPage /> },
           { path: "tenants/nouveau", element: <TenantCreatePage /> },
+          {
+            path: "tenants/:tenantId/utilisateurs",
+            element: <TenantUtilisateursPage />,
+          },
           { path: "plans", element: <PlansPage /> },
           { path: "audit", element: <AuditLogsPage /> },
           { path: "profil", element: <ProfilPage /> },

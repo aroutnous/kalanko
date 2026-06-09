@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import set_tenant_context
 from app.core.security import hash_password
-from app.models.auth import AuditLog, Utilisateur
+from app.models.auth import AuditLog, ResetToken, Session as UserSession, Utilisateur, UtilisateurPermission
 from app.models.eleve import Eleve
 from app.models.enums import (
     RoleUtilisateur,
@@ -41,8 +41,10 @@ from app.schemas.platform import (
     TenantCreate,
     TenantCreateResponse,
     TenantResponse,
+    TenantUpdate,
     UtilisateurTenantCreate,
     UtilisateurTenantResponse,
+    UtilisateurTenantUpdate,
 )
 from app.services.audit_service import log_audit
 
@@ -457,3 +459,239 @@ class PlatformService:
             role=utilisateur.role,
             mot_de_passe_temporaire=None if data.password else mot_de_passe,
         )
+
+    def modifier_tenant(self, tenant_id: uuid.UUID, data: TenantUpdate) -> TenantResponse:
+        tenant = self._get_tenant(tenant_id)
+        changes: dict[str, Any] = {}
+
+        if data.nom is not None:
+            tenant.nom = data.nom
+            changes["nom"] = data.nom
+        if data.email_contact is not None:
+            tenant.email = str(data.email_contact).lower()
+            changes["email"] = tenant.email
+        if data.telephone is not None:
+            tenant.telephone = data.telephone
+            changes["telephone"] = data.telephone
+        if data.adresse is not None:
+            tenant.adresse = data.adresse
+            changes["adresse"] = data.adresse
+        if data.logo_url is not None:
+            tenant.logo_url = data.logo_url
+            changes["logo_url"] = data.logo_url
+        if data.slug is not None:
+            new_slug = data.slug.strip().lower()
+            if not new_slug:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Slug invalide",
+                )
+            conflict = (
+                self.db.query(Tenant)
+                .filter(Tenant.slug == new_slug, Tenant.id != tenant_id)
+                .first()
+            )
+            if conflict is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ce slug est déjà utilisé",
+                )
+            tenant.slug = new_slug
+            changes["slug"] = new_slug
+
+        self.db.commit()
+        self.db.refresh(tenant)
+        self._audit(
+            "platform.tenant.update",
+            "tenants",
+            tenant.id,
+            tenant_id=tenant.id,
+            details=changes or None,
+        )
+        return TenantResponse.model_validate(tenant)
+
+    def supprimer_tenant(self, tenant_id: uuid.UUID) -> None:
+        tenant = self._get_tenant(tenant_id)
+        set_tenant_context(self.db, tenant_id)
+        abonnement_actif = (
+            self.db.query(Abonnement)
+            .filter(
+                Abonnement.tenant_id == tenant_id,
+                Abonnement.statut == StatutAbonnement.ACTIF,
+            )
+            .first()
+        )
+        if abonnement_actif is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Impossible de supprimer un tenant avec un abonnement actif",
+            )
+
+        nom_tenant = tenant.nom
+        slug = tenant.slug
+        self._audit(
+            "platform.tenant.delete",
+            "tenants",
+            tenant.id,
+            tenant_id=tenant.id,
+            details={"nom": nom_tenant, "slug": slug},
+        )
+        self.db.delete(tenant)
+        self.db.commit()
+
+    def get_utilisateurs_tenant(
+        self, tenant_id: uuid.UUID
+    ) -> list[UtilisateurTenantResponse]:
+        tenant = self._get_tenant(tenant_id)
+        utilisateurs = (
+            self.db.query(Utilisateur)
+            .filter(
+                Utilisateur.tenant_id == tenant.id,
+                Utilisateur.role != RoleUtilisateur.PLATFORM_OWNER,
+            )
+            .order_by(Utilisateur.nom, Utilisateur.prenom)
+            .all()
+        )
+        return [UtilisateurTenantResponse.model_validate(u) for u in utilisateurs]
+
+    def _get_utilisateur_tenant(
+        self, tenant_id: uuid.UUID, utilisateur_id: uuid.UUID
+    ) -> Utilisateur:
+        self._get_tenant(tenant_id)
+        utilisateur = (
+            self.db.query(Utilisateur)
+            .filter(
+                Utilisateur.id == utilisateur_id,
+                Utilisateur.tenant_id == tenant_id,
+            )
+            .first()
+        )
+        if utilisateur is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Utilisateur introuvable",
+            )
+        return utilisateur
+
+    def _reassign_permissions_accordees(
+        self, utilisateur_id: uuid.UUID, nouveau_accordeur: uuid.UUID
+    ) -> None:
+        self.db.query(UtilisateurPermission).filter(
+            UtilisateurPermission.accordee_par == utilisateur_id
+        ).update(
+            {UtilisateurPermission.accordee_par: nouveau_accordeur},
+            synchronize_session=False,
+        )
+
+    def _supprimer_utilisateur_rows(self, utilisateur: Utilisateur) -> None:
+        self.db.query(UserSession).filter(
+            UserSession.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.query(ResetToken).filter(
+            ResetToken.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.query(UtilisateurPermission).filter(
+            UtilisateurPermission.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.delete(utilisateur)
+
+    def modifier_utilisateur_tenant(
+        self,
+        tenant_id: uuid.UUID,
+        utilisateur_id: uuid.UUID,
+        data: UtilisateurTenantUpdate,
+    ) -> UtilisateurTenantResponse:
+        utilisateur = self._get_utilisateur_tenant(tenant_id, utilisateur_id)
+        changes: dict[str, Any] = {}
+
+        if data.nom is not None:
+            utilisateur.nom = data.nom
+            changes["nom"] = data.nom
+        if data.prenom is not None:
+            utilisateur.prenom = data.prenom
+            changes["prenom"] = data.prenom
+        if data.email is not None:
+            email = str(data.email).lower()
+            conflict = (
+                self.db.query(Utilisateur)
+                .filter(
+                    Utilisateur.tenant_id == tenant_id,
+                    Utilisateur.email == email,
+                    Utilisateur.id != utilisateur_id,
+                )
+                .first()
+            )
+            if conflict is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email déjà utilisé pour ce tenant",
+                )
+            utilisateur.email = email
+            changes["email"] = email
+        if data.role is not None:
+            if utilisateur.role == RoleUtilisateur.PROMOTEUR:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Le rôle du promoteur principal ne peut pas être modifié",
+                )
+            utilisateur.role = data.role
+            changes["role"] = data.role.value
+
+        self.db.commit()
+        self.db.refresh(utilisateur)
+        self._audit(
+            "platform.user.update",
+            "utilisateurs",
+            utilisateur.id,
+            tenant_id=tenant_id,
+            details=changes or None,
+        )
+        return UtilisateurTenantResponse.model_validate(utilisateur)
+
+    def supprimer_utilisateur(
+        self, tenant_id: uuid.UUID, utilisateur_id: uuid.UUID
+    ) -> None:
+        utilisateur = self._get_utilisateur_tenant(tenant_id, utilisateur_id)
+
+        if utilisateur.role == RoleUtilisateur.PROMOTEUR:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Le promoteur principal ne peut pas être supprimé",
+            )
+
+        if utilisateur.id == self.utilisateur_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vous ne pouvez pas supprimer votre propre compte",
+            )
+
+        self._reassign_permissions_accordees(utilisateur.id, self.utilisateur_id)
+        email = utilisateur.email
+        self._supprimer_utilisateur_rows(utilisateur)
+        self.db.commit()
+        self._audit(
+            "platform.user.delete",
+            "utilisateurs",
+            utilisateur_id,
+            tenant_id=tenant_id,
+            details={"email": email},
+        )
+
+    def reset_password_utilisateur(
+        self, tenant_id: uuid.UUID, utilisateur_id: uuid.UUID
+    ) -> str:
+        utilisateur = self._get_utilisateur_tenant(tenant_id, utilisateur_id)
+        mot_de_passe = self._generer_mot_de_passe_temporaire()
+        utilisateur.mot_de_passe_hash = hash_password(mot_de_passe)
+        self.db.query(UserSession).filter(
+            UserSession.utilisateur_id == utilisateur.id
+        ).delete(synchronize_session=False)
+        self.db.commit()
+        self._audit(
+            "platform.user.reset_password",
+            "utilisateurs",
+            utilisateur.id,
+            tenant_id=tenant_id,
+            details={"email": utilisateur.email},
+        )
+        return mot_de_passe

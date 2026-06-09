@@ -271,6 +271,109 @@ async def test_creer_utilisateur_tenant(
 
 
 @pytest.mark.asyncio
+async def test_modifier_tenant(
+    async_client: AsyncClient,
+    platform_headers: dict[str, str],
+    plan_abonnement: PlanAbonnement,
+) -> None:
+    create = await async_client.post(
+        "/platform/tenants",
+        json={
+            "nom": "École Edit",
+            "email": "edit@ecole.ml",
+            "plan_id": str(plan_abonnement.id),
+            "promoteur_email": "pe@ecole.ml",
+            "promoteur_nom": "Edit",
+            "promoteur_prenom": "Test",
+        },
+        headers=platform_headers,
+    )
+    tenant_id = create.json()["tenant"]["id"]
+
+    response = await async_client.put(
+        f"/platform/tenants/{tenant_id}",
+        json={
+            "nom": "École Modifiée",
+            "email_contact": "nouveau@ecole.ml",
+            "slug": "ecole-modifiee-test",
+        },
+        headers=platform_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["nom"] == "École Modifiée"
+    assert data["email"] == "nouveau@ecole.ml"
+    assert data["slug"] == "ecole-modifiee-test"
+
+
+@pytest.mark.asyncio
+async def test_supprimer_tenant_abonnement_actif(
+    async_client: AsyncClient,
+    platform_headers: dict[str, str],
+    plan_abonnement: PlanAbonnement,
+) -> None:
+    create = await async_client.post(
+        "/platform/tenants",
+        json={
+            "nom": "École Delete Block",
+            "email": "del@ecole.ml",
+            "plan_id": str(plan_abonnement.id),
+            "promoteur_email": "pd@ecole.ml",
+            "promoteur_nom": "Del",
+            "promoteur_prenom": "Block",
+        },
+        headers=platform_headers,
+    )
+    tenant_id = create.json()["tenant"]["id"]
+
+    response = await async_client.delete(
+        f"/platform/tenants/{tenant_id}",
+        headers=platform_headers,
+    )
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_reset_password_utilisateur_tenant(
+    async_client: AsyncClient,
+    platform_headers: dict[str, str],
+    plan_abonnement: PlanAbonnement,
+) -> None:
+    create = await async_client.post(
+        "/platform/tenants",
+        json={
+            "nom": "École Reset",
+            "email": "reset@ecole.ml",
+            "plan_id": str(plan_abonnement.id),
+            "promoteur_email": "pr@ecole.ml",
+            "promoteur_nom": "Reset",
+            "promoteur_prenom": "Pwd",
+        },
+        headers=platform_headers,
+    )
+    tenant_id = create.json()["tenant"]["id"]
+
+    user_create = await async_client.post(
+        f"/platform/tenants/{tenant_id}/utilisateurs",
+        json={
+            "email": "sec@ecole-reset.ml",
+            "nom": "Sec",
+            "prenom": "Test",
+            "role": "secretaire",
+        },
+        headers=platform_headers,
+    )
+    user_id = user_create.json()["id"]
+
+    response = await async_client.post(
+        f"/platform/tenants/{tenant_id}/utilisateurs/{user_id}/reset-password",
+        headers=platform_headers,
+    )
+    assert response.status_code == 200
+    assert len(response.json()["mot_de_passe_temporaire"]) >= 8
+
+
+@pytest.mark.asyncio
 async def test_acces_refuse_non_platform_owner(
     async_client: AsyncClient,
     auth_headers: dict[str, str],

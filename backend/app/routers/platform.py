@@ -18,11 +18,14 @@ from app.schemas.platform import (
     PlanCreate,
     PlanResponse,
     PlatformStatsResponse,
+    ResetPasswordResponse,
     TenantCreate,
     TenantCreateResponse,
     TenantResponse,
+    TenantUpdate,
     UtilisateurTenantCreate,
     UtilisateurTenantResponse,
+    UtilisateurTenantUpdate,
 )
 from app.services.platform_service import PlatformService
 
@@ -81,6 +84,27 @@ def creer_tenant(
     user: PlatformAdmin,
 ) -> TenantCreateResponse:
     return _service(db, user, request).creer_tenant(body)
+
+
+@router.put("/tenants/{tenant_id}", response_model=TenantResponse)
+def modifier_tenant(
+    tenant_id: uuid.UUID,
+    body: TenantUpdate,
+    request: Request,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> TenantResponse:
+    return _service(db, user, request).modifier_tenant(tenant_id, body)
+
+
+@router.delete("/tenants/{tenant_id}", status_code=status.HTTP_204_NO_CONTENT)
+def supprimer_tenant(
+    tenant_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> None:
+    _service(db, user, request).supprimer_tenant(tenant_id)
 
 
 @router.put("/tenants/{tenant_id}/suspendre", response_model=TenantResponse)
@@ -178,6 +202,19 @@ def get_audit_logs_global(
     return [AuditLogResponse.model_validate(log) for log in logs]
 
 
+@router.get(
+    "/tenants/{tenant_id}/utilisateurs",
+    response_model=list[UtilisateurTenantResponse],
+)
+def list_utilisateurs_tenant(
+    tenant_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> list[UtilisateurTenantResponse]:
+    return _service(db, user, request).get_utilisateurs_tenant(tenant_id)
+
+
 @router.post(
     "/tenants/{tenant_id}/utilisateurs",
     response_model=UtilisateurTenantResponse,
@@ -191,3 +228,51 @@ def creer_utilisateur_tenant(
     user: PlatformAdmin,
 ) -> UtilisateurTenantResponse:
     return _service(db, user, request).creer_utilisateur_tenant(tenant_id, body)
+
+
+@router.put(
+    "/tenants/{tenant_id}/utilisateurs/{user_id}",
+    response_model=UtilisateurTenantResponse,
+)
+def modifier_utilisateur_tenant(
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: UtilisateurTenantUpdate,
+    request: Request,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> UtilisateurTenantResponse:
+    return _service(db, user, request).modifier_utilisateur_tenant(
+        tenant_id, user_id, body
+    )
+
+
+@router.delete(
+    "/tenants/{tenant_id}/utilisateurs/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def supprimer_utilisateur_tenant(
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> None:
+    _service(db, user, request).supprimer_utilisateur(tenant_id, user_id)
+
+
+@router.post(
+    "/tenants/{tenant_id}/utilisateurs/{user_id}/reset-password",
+    response_model=ResetPasswordResponse,
+)
+def reset_password_utilisateur_tenant(
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> ResetPasswordResponse:
+    mot_de_passe = _service(db, user, request).reset_password_utilisateur(
+        tenant_id, user_id
+    )
+    return ResetPasswordResponse(mot_de_passe_temporaire=mot_de_passe)
