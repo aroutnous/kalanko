@@ -3,8 +3,22 @@ export const ETABLISSEMENT_API = {
   anneeActive: "/annees-scolaires/active",
   periodes: "/periodes",
   cycles: "/cycles",
+  /** Niveaux scolaires (ex-niveaux). */
+  classesNiveau: "/classes",
+  /** Alias legacy. */
   niveaux: "/niveaux",
-  classes: "/classes",
+  /** Divisions physiques (ex-classes). */
+  salles: "/salles",
+  /** @deprecated Alias legacy — utiliser `salles`. */
+  classes: "/salles",
+  /** Alias legacy divisions physiques. */
+  classesLegacy: "/divisions",
   matieres: "/matieres",
   configNotation: "/config-notation",
+  structure: "/etablissement/structure",
+  wizard: "/wizard",
+  valeursCycles: "/valeurs/cycles",
+  valeursClasses: "/valeurs/classes",
+  valeursPeriodes: "/valeurs/periodes",
+  valeursAnnees: "/valeurs/annees-scolaires",
 } as const;

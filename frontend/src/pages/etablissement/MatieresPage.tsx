@@ -13,15 +13,15 @@ import { useEstablishmentAccess } from "@/hooks/useEstablishmentAccess";
 import { api, getErrorMessage } from "@/lib/api";
 import { ETABLISSEMENT_API } from "@/lib/etablissement-api";
 import { useToastStore } from "@/stores/toastStore";
-import type { Matiere, Niveau } from "@/types";
+import type { ClasseNiveau, Matiere } from "@/types";
 
 interface MatiereForm {
   nom: string;
   coefficient: string;
-  niveau_id: string;
+  classe_id: string;
 }
 
-const INITIAL: MatiereForm = { nom: "", coefficient: "1", niveau_id: "" };
+const INITIAL: MatiereForm = { nom: "", coefficient: "1", classe_id: "" };
 
 export function MatieresPage(): React.JSX.Element {
   const queryClient = useQueryClient();
@@ -30,10 +30,10 @@ export function MatieresPage(): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<MatiereForm>(INITIAL);
 
-  const { data: niveaux = [], isLoading: loadingNiveaux } = useQuery({
-    queryKey: ["niveaux"],
+  const { data: classesNiveau = [], isLoading: loadingClasses } = useQuery({
+    queryKey: ["classes-niveau"],
     queryFn: async () => {
-      const { data } = await api.get<Niveau[]>(ETABLISSEMENT_API.niveaux);
+      const { data } = await api.get<ClasseNiveau[]>(ETABLISSEMENT_API.classesNiveau);
       return data;
     },
   });
@@ -48,24 +48,24 @@ export function MatieresPage(): React.JSX.Element {
 
   const grouped = useMemo(() => {
     const map = new Map<string, Matiere[]>();
-    for (const niveau of niveaux) map.set(niveau.id, []);
+    for (const classe of classesNiveau) map.set(classe.id, []);
     for (const matiere of matieres) {
-      const list = map.get(matiere.niveau_id) ?? [];
+      const list = map.get(matiere.classe_id) ?? [];
       list.push(matiere);
-      map.set(matiere.niveau_id, list);
+      map.set(matiere.classe_id, list);
     }
-    return niveaux.map((niveau) => ({
-      niveau,
-      matieres: map.get(niveau.id) ?? [],
+    return classesNiveau.map((classe) => ({
+      classe,
+      matieres: map.get(classe.id) ?? [],
     }));
-  }, [niveaux, matieres]);
+  }, [classesNiveau, matieres]);
 
   const createMutation = useMutation({
     mutationFn: async (payload: MatiereForm) => {
       const { data } = await api.post<Matiere>(ETABLISSEMENT_API.matieres, {
         nom: payload.nom,
         coefficient: payload.coefficient,
-        niveau_id: payload.niveau_id,
+        classe_id: payload.classe_id,
         est_active: true,
       });
       return data;
@@ -105,12 +105,12 @@ export function MatieresPage(): React.JSX.Element {
     onError: (err) => toast(getErrorMessage(err), "error"),
   });
 
-  if (loadingNiveaux || loadingMatieres) return <LoadingSpinner />;
+  if (loadingClasses || loadingMatieres) return <LoadingSpinner />;
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Matières par niveau</h2>
+        <h2 className="text-lg font-semibold">Matières par classe</h2>
         {canManage ? (
           <Button onClick={() => setOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -120,10 +120,10 @@ export function MatieresPage(): React.JSX.Element {
       </div>
 
       <div className="space-y-6">
-        {grouped.map(({ niveau, matieres: niveauMatieres }) => (
-          <div key={niveau.id} className="rounded-lg border border-border p-4">
-            <h3 className="mb-3 font-medium">{niveau.nom}</h3>
-            {niveauMatieres.length === 0 ? (
+        {grouped.map(({ classe, matieres: classeMatieres }) => (
+          <div key={classe.id} className="rounded-lg border border-border p-4">
+            <h3 className="mb-3 font-medium">{classe.nom}</h3>
+            {classeMatieres.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucune matière</p>
             ) : (
               <div className="overflow-hidden rounded-lg border border-border">
@@ -137,7 +137,7 @@ export function MatieresPage(): React.JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {niveauMatieres.map((m) => (
+                    {classeMatieres.map((m) => (
                       <tr key={m.id} className="border-t border-border">
                         <td className="px-4 py-2">{m.nom}</td>
                         <td className="px-4 py-2">{m.coefficient}</td>
@@ -185,17 +185,17 @@ export function MatieresPage(): React.JSX.Element {
         loading={createMutation.isPending}
       >
         <div className="space-y-2">
-          <Label htmlFor="niveau_id">Niveau</Label>
+          <Label htmlFor="classe_id">Classe</Label>
           <Select
-            id="niveau_id"
-            value={form.niveau_id}
-            onChange={(e) => setForm((p) => ({ ...p, niveau_id: e.target.value }))}
+            id="classe_id"
+            value={form.classe_id}
+            onChange={(e) => setForm((p) => ({ ...p, classe_id: e.target.value }))}
             required
           >
             <option value="">Sélectionner</option>
-            {niveaux.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.nom}
+            {classesNiveau.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nom}
               </option>
             ))}
           </Select>

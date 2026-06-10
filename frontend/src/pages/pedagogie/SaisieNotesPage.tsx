@@ -18,14 +18,14 @@ import { ELEVES_API } from "@/lib/eleves-api";
 import { PEDAGOGIE_API } from "@/lib/pedagogie-api";
 import { useToastStore } from "@/stores/toastStore";
 import type {
-  Classe,
+  ClasseNiveau,
   ConfigNotation,
   Eleve,
   Matiere,
-  Niveau,
   Note,
   NoteCreatePayload,
   Periode,
+  Salle,
 } from "@/types";
 
 export function SaisieNotesPage(): React.JSX.Element {
@@ -36,10 +36,10 @@ export function SaisieNotesPage(): React.JSX.Element {
   const [periodeId, setPeriodeId] = useState("");
   const [grid, setGrid] = useState<NotesGridState>({});
 
-  const { data: classes = [] } = useQuery({
-    queryKey: ["classes"],
+  const { data: salles = [] } = useQuery({
+    queryKey: ["salles"],
     queryFn: async () => {
-      const { data } = await api.get<Classe[]>(ETABLISSEMENT_API.classes);
+      const { data } = await api.get<Salle[]>(ETABLISSEMENT_API.salles);
       return data;
     },
   });
@@ -52,10 +52,10 @@ export function SaisieNotesPage(): React.JSX.Element {
     },
   });
 
-  const { data: niveaux = [] } = useQuery({
-    queryKey: ["niveaux"],
+  const { data: classesNiveau = [] } = useQuery({
+    queryKey: ["classes-niveau"],
     queryFn: async () => {
-      const { data } = await api.get<Niveau[]>(ETABLISSEMENT_API.niveaux);
+      const { data } = await api.get<ClasseNiveau[]>(ETABLISSEMENT_API.classesNiveau);
       return data;
     },
   });
@@ -76,14 +76,14 @@ export function SaisieNotesPage(): React.JSX.Element {
     },
   });
 
-  const selectedClasse = classes.find((c) => c.id === classeId);
+  const selectedSalle = salles.find((s) => s.id === classeId);
 
   const matieres = useMemo(() => {
-    if (!selectedClasse) return [];
+    if (!selectedSalle) return [];
     return matieresAll.filter(
-      (m) => m.niveau_id === selectedClasse.niveau_id && m.est_active,
+      (m) => m.classe_id === selectedSalle.classe_id && m.est_active,
     );
-  }, [matieresAll, selectedClasse]);
+  }, [matieresAll, selectedSalle]);
 
   const { data: eleves = [], isLoading: loadingEleves } = useQuery({
     queryKey: ["eleves", "", classeId, ""],
@@ -235,10 +235,10 @@ export function SaisieNotesPage(): React.JSX.Element {
           onChange={(e) => setClasseId(e.target.value)}
           className="max-w-[220px]"
         >
-          <option value="">Sélectionner une classe</option>
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
+          <option value="">Sélectionner une salle</option>
+          {salles.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.nom_salle ?? s.nom}
             </option>
           ))}
         </Select>
@@ -257,9 +257,10 @@ export function SaisieNotesPage(): React.JSX.Element {
         </Select>
       </div>
 
-      {classeId && selectedClasse ? (
+      {classeId && selectedSalle ? (
         <p className="text-sm text-muted-foreground">
-          Niveau : {niveaux.find((n) => n.id === selectedClasse.niveau_id)?.nom ?? "—"}
+          Classe :{" "}
+          {classesNiveau.find((c) => c.id === selectedSalle.classe_id)?.nom ?? "—"}
           {" · "}
           Note de passage : <strong>{notePassage}</strong>
           {" · "}
@@ -269,7 +270,7 @@ export function SaisieNotesPage(): React.JSX.Element {
 
       {!classeId || !periodeId ? (
         <p className="text-sm text-muted-foreground">
-          Sélectionnez une classe et une période pour afficher la grille.
+          Sélectionnez une salle et une période pour afficher la grille.
         </p>
       ) : loadingEleves || loadingNotes ? (
         <LoadingSpinner />

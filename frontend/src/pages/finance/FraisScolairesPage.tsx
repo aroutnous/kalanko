@@ -15,25 +15,25 @@ import { api, getErrorMessage } from "@/lib/api";
 import { ETABLISSEMENT_API } from "@/lib/etablissement-api";
 import { FINANCE_API } from "@/lib/finance-api";
 import { useToastStore } from "@/stores/toastStore";
-import type { AnneeScolaire, FraisScolaire, Niveau } from "@/types";
+import type { AnneeScolaire, ClasseNiveau, FraisScolaire } from "@/types";
 
 interface FraisForm {
   libelle: string;
   montant: string;
-  niveau_id: string;
+  classe_id: string;
   annee_scolaire_id: string;
   est_obligatoire: string;
 }
 
 interface FraisRow extends FraisScolaire {
-  niveau_nom: string;
+  classe_nom: string;
   annee_libelle: string;
 }
 
 const INITIAL: FraisForm = {
   libelle: "",
   montant: "",
-  niveau_id: "",
+  classe_id: "",
   annee_scolaire_id: "",
   est_obligatoire: "true",
 };
@@ -46,10 +46,10 @@ export function FraisScolairesPage(): React.JSX.Element {
   const [form, setForm] = useState<FraisForm>(INITIAL);
   const [anneeFilter, setAnneeFilter] = useState("");
 
-  const { data: niveaux = [] } = useQuery({
-    queryKey: ["niveaux"],
+  const { data: classesNiveau = [] } = useQuery({
+    queryKey: ["classes-niveau"],
     queryFn: async () => {
-      const { data } = await api.get<Niveau[]>(ETABLISSEMENT_API.niveaux);
+      const { data } = await api.get<ClasseNiveau[]>(ETABLISSEMENT_API.classesNiveau);
       return data;
     },
   });
@@ -72,12 +72,15 @@ export function FraisScolairesPage(): React.JSX.Element {
     },
   });
 
-  const niveauMap = useMemo(() => new Map(niveaux.map((n) => [n.id, n.nom])), [niveaux]);
+  const classeMap = useMemo(
+    () => new Map(classesNiveau.map((c) => [c.id, c.nom])),
+    [classesNiveau],
+  );
   const anneeMap = useMemo(() => new Map(annees.map((a) => [a.id, a.libelle])), [annees]);
 
   const rows: FraisRow[] = frais.map((f) => ({
     ...f,
-    niveau_nom: niveauMap.get(f.niveau_id) ?? "—",
+    classe_nom: classeMap.get(f.classe_id) ?? "—",
     annee_libelle: anneeMap.get(f.annee_scolaire_id) ?? "—",
   }));
 
@@ -86,7 +89,7 @@ export function FraisScolairesPage(): React.JSX.Element {
       const { data } = await api.post<FraisScolaire>(FINANCE_API.frais, {
         libelle: form.libelle,
         montant: form.montant,
-        niveau_id: form.niveau_id,
+        classe_id: form.classe_id,
         annee_scolaire_id: form.annee_scolaire_id,
         est_obligatoire: form.est_obligatoire === "true",
       });
@@ -108,7 +111,7 @@ export function FraisScolairesPage(): React.JSX.Element {
       header: "Montant",
       render: (r) => `${Number(r.montant).toLocaleString("fr-FR")} FCFA`,
     },
-    { key: "niveau", header: "Niveau", render: (r) => r.niveau_nom },
+    { key: "classe", header: "Classe", render: (r) => r.classe_nom },
     { key: "annee", header: "Année", render: (r) => r.annee_libelle },
     {
       key: "obligatoire",
@@ -191,17 +194,17 @@ export function FraisScolairesPage(): React.JSX.Element {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="niveau_id">Niveau *</Label>
+            <Label htmlFor="classe_id">Classe *</Label>
             <Select
-              id="niveau_id"
-              value={form.niveau_id}
-              onChange={(e) => setForm((p) => ({ ...p, niveau_id: e.target.value }))}
+              id="classe_id"
+              value={form.classe_id}
+              onChange={(e) => setForm((p) => ({ ...p, classe_id: e.target.value }))}
               required
             >
               <option value="">Sélectionner</option>
-              {niveaux.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.nom}
+              {classesNiveau.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nom}
                 </option>
               ))}
             </Select>

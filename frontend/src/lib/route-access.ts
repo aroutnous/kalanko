@@ -22,13 +22,6 @@ export function canAccessPath(
     return menuAccess.showEnseignants;
   }
 
-  if (
-    pathname.startsWith("/classes") ||
-    pathname.startsWith("/etablissement/classes")
-  ) {
-    return menuAccess.showClasses;
-  }
-
   if (pathname === ROUTES.elevesInscrire) {
     return menuAccess.can.elevesInscrire;
   }

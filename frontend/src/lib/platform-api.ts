@@ -25,4 +25,6 @@ export const PLATFORM_API = {
     `/platform/tenants/${tenantId}/utilisateurs/${userId}/reset-password`,
   tenantSuspendre: (id: string) => `/platform/tenants/${id}/suspendre`,
   tenantActiver: (id: string) => `/platform/tenants/${id}/activer`,
+  valeursSysteme: "/platform/valeurs-systeme",
+  valeurSysteme: (id: string) => `/platform/valeurs-systeme/${id}`,
 } as const;

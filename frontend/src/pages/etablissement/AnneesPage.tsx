@@ -1,34 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { FormModal } from "@/components/etablissement/FormModal";
 import { StatusBadge } from "@/components/etablissement/StatusBadge";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useEstablishmentAccess } from "@/hooks/useEstablishmentAccess";
+import { datesFromAnneeLibelle } from "@/lib/annee-utils";
 import { api, getErrorMessage } from "@/lib/api";
 import { ETABLISSEMENT_API } from "@/lib/etablissement-api";
 import { useToastStore } from "@/stores/toastStore";
-import type { AnneeScolaire } from "@/types";
-
-interface AnneeForm {
-  libelle: string;
-  date_debut: string;
-  date_fin: string;
-}
-
-const INITIAL: AnneeForm = { libelle: "", date_debut: "", date_fin: "" };
+import type { AnneeScolaire, ValeurSysteme } from "@/types";
 
 export function AnneesPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
   const { canManage } = useEstablishmentAccess();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<AnneeForm>(INITIAL);
+  const [selectedValeur, setSelectedValeur] = useState("");
 
   const { data: annees = [], isLoading } = useQuery({
     queryKey: ["annees-scolaires"],
@@ -38,19 +28,39 @@ export function AnneesPage(): React.JSX.Element {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (payload: AnneeForm) => {
+  const { data: valeursAnnees = [] } = useQuery({
+    queryKey: ["valeurs-annees-scolaires"],
+    queryFn: async () => {
+      const { data } = await api.get<ValeurSysteme[]>(ETABLISSEMENT_API.valeursAnnees);
+      return data;
+    },
+  });
+
+  const libellesExistants = useMemo(
+    () => new Set(annees.map((a) => a.libelle)),
+    [annees],
+  );
+
+  const valeursDisponibles = useMemo(
+    () => valeursAnnees.filter((v) => !libellesExistants.has(v.valeur)),
+    [valeursAnnees, libellesExistants],
+  );
+
+  const ajouterMutation = useMutation({
+    mutationFn: async (libelle: string) => {
+      const { date_debut, date_fin } = datesFromAnneeLibelle(libelle);
       const { data } = await api.post<AnneeScolaire>(ETABLISSEMENT_API.annees, {
-        ...payload,
+        libelle,
+        date_debut,
+        date_fin,
         est_active: false,
       });
       return data;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["annees-scolaires"] });
-      toast("Année scolaire créée");
-      setOpen(false);
-      setForm(INITIAL);
+      toast("Année scolaire ajoutée");
+      setSelectedValeur("");
     },
     onError: (err) => toast(getErrorMessage(err), "error"),
   });
@@ -134,13 +144,33 @@ export function AnneesPage(): React.JSX.Element {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Années scolaires</h2>
-        {canManage ? (
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle année
-          </Button>
-        ) : null}
       </div>
+
+      {canManage ? (
+        <div className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-border p-4">
+          <div className="min-w-[200px] flex-1 space-y-2">
+            <Label htmlFor="annee_valeur">Ajouter une année</Label>
+            <Select
+              id="annee_valeur"
+              value={selectedValeur}
+              onChange={(e) => setSelectedValeur(e.target.value)}
+            >
+              <option value="">Sélectionner dans la liste système</option>
+              {valeursDisponibles.map((v) => (
+                <option key={v.id} value={v.valeur}>
+                  {v.valeur}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button
+            disabled={!selectedValeur || ajouterMutation.isPending}
+            onClick={() => selectedValeur && ajouterMutation.mutate(selectedValeur)}
+          >
+            Ajouter
+          </Button>
+        </div>
+      ) : null}
 
       <DataTable
         columns={columns}
@@ -151,45 +181,6 @@ export function AnneesPage(): React.JSX.Element {
         onPageChange={() => undefined}
         emptyMessage="Aucune année scolaire"
       />
-
-      <FormModal
-        open={open}
-        title="Nouvelle année scolaire"
-        onClose={() => setOpen(false)}
-        onSubmit={() => createMutation.mutate(form)}
-        loading={createMutation.isPending}
-        submitLabel="Créer"
-      >
-        <div className="space-y-2">
-          <Label htmlFor="libelle">Libellé</Label>
-          <Input
-            id="libelle"
-            value={form.libelle}
-            onChange={(e) => setForm((p) => ({ ...p, libelle: e.target.value }))}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="date_debut">Date début</Label>
-          <Input
-            id="date_debut"
-            type="date"
-            value={form.date_debut}
-            onChange={(e) => setForm((p) => ({ ...p, date_debut: e.target.value }))}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="date_fin">Date fin</Label>
-          <Input
-            id="date_fin"
-            type="date"
-            value={form.date_fin}
-            onChange={(e) => setForm((p) => ({ ...p, date_fin: e.target.value }))}
-            required
-          />
-        </div>
-      </FormModal>
     </div>
   );
 }

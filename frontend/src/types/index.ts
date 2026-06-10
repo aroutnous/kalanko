@@ -200,16 +200,29 @@ export interface Enseignant {
   classes: string[];
 }
 
-export interface Classe {
+/** Niveau scolaire (table `classes`, ex-niveau). */
+export interface ClasseNiveau {
   id: string;
   tenant_id: string;
-  niveau_id: string;
+  cycle_id: string;
+  nom: string;
+  ordre: number;
+  valeur_systeme_ref: string | null;
+}
+
+/** Division physique (table `salles`, ex-classe). */
+export interface Salle {
+  id: string;
+  tenant_id: string;
+  classe_id: string;
   annee_scolaire_id: string;
   nom: string;
-  capacite_max: number | null;
-  created_at: string;
-  updated_at: string | null;
+  nom_salle: string | null;
+  capacite: number | null;
 }
+
+/** @deprecated Utiliser `Salle`. */
+export type Classe = Salle;
 
 export interface AnneeScolaire {
   id: string;
@@ -228,13 +241,8 @@ export interface Cycle {
   ordre: number;
 }
 
-export interface Niveau {
-  id: string;
-  tenant_id: string;
-  cycle_id: string;
-  nom: string;
-  ordre: number;
-}
+/** @deprecated Utiliser `ClasseNiveau`. */
+export type Niveau = ClasseNiveau;
 
 export interface Periode {
   id: string;
@@ -249,7 +257,7 @@ export interface Periode {
 export interface Matiere {
   id: string;
   tenant_id: string;
-  niveau_id: string;
+  classe_id: string;
   nom: string;
   coefficient: number;
   est_active: boolean;
@@ -263,11 +271,86 @@ export interface ConfigNotation {
   arrondi: number;
 }
 
-export interface ClasseEffectif {
-  classe_id: string;
+export interface SalleEffectif {
+  salle_id: string;
   effectif: number;
-  capacite_max: number | null;
+  capacite: number | null;
   est_complete: boolean;
+}
+
+/** @deprecated Utiliser `SalleEffectif`. */
+export type ClasseEffectif = SalleEffectif;
+
+export interface ValeurSysteme {
+  id: string;
+  categorie: string;
+  valeur: string;
+  metadata_json: Record<string, string>;
+  ordre: number;
+  actif: boolean;
+}
+
+export interface WizardPeriodeItem {
+  periode: string;
+  date_debut: string;
+  date_fin: string;
+}
+
+export interface WizardClasseItem {
+  classe: string;
+  cycle: string;
+}
+
+export interface WizardSalleItem {
+  classe: string;
+  nom_salle: string;
+  capacite: number;
+}
+
+export interface WizardMatiereItem {
+  classe: string;
+  nom: string;
+  coefficient: number;
+}
+
+export interface WizardConfigNotation {
+  note_max: number;
+  note_passage: number;
+  arrondi: number;
+}
+
+export interface WizardEtablissementData {
+  annee_scolaire: string;
+  periodes: WizardPeriodeItem[];
+  cycles_selectionnes: string[];
+  classes_selectionnees: WizardClasseItem[];
+  salles: WizardSalleItem[];
+  matieres: WizardMatiereItem[];
+  config_notation: WizardConfigNotation;
+}
+
+export interface WizardEtablissementResponse {
+  annee_scolaire_id: string;
+  periodes_creees: number;
+  classes_creees: number;
+  salles_creees: number;
+  matieres_creees: number;
+  message: string;
+}
+
+export interface EtablissementStructure {
+  cycles: Array<
+    Cycle & {
+      classes: Array<
+        ClasseNiveau & {
+          salles: Salle[];
+          matieres: Matiere[];
+        }
+      >;
+    }
+  >;
+  annees_scolaires: AnneeScolaire[];
+  annee_active: AnneeScolaire | null;
 }
 
 export type StatutBulletin = "brouillon" | "valide" | "publie";
@@ -365,7 +448,7 @@ export interface FraisScolaire {
   tenant_id?: string;
   libelle: string;
   montant: number;
-  niveau_id: string;
+  classe_id: string;
   annee_scolaire_id: string;
   est_obligatoire: boolean;
   created_at?: string;

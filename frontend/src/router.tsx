@@ -10,19 +10,17 @@ import { getPostLoginRoute } from "@/lib/auth-routes";
 import { ROUTES } from "@/lib/constants";
 import { AdminLoginPage } from "@/pages/auth/AdminLoginPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
+import { ClassesPage } from "@/pages/classes/ClassesPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { AnneesPage } from "@/pages/etablissement/AnneesPage";
-import { ClassesPage as EtablissementClassesPage } from "@/pages/etablissement/ClassesPage";
-import { ClassesPage } from "@/pages/classes/ClassesPage";
+import { ConfigNotationPage } from "@/pages/etablissement/ConfigNotationPage";
+import { MatieresPage } from "@/pages/etablissement/MatieresPage";
+import { PeriodesPage } from "@/pages/etablissement/PeriodesPage";
+import { WizardEtablissementPage } from "@/pages/etablissement/WizardEtablissementPage";
 import { HubDocumentairePage } from "@/pages/documents/HubDocumentairePage";
 import { EnseignantsPage } from "@/pages/enseignants/EnseignantsPage";
 import { PaiementsPage } from "@/pages/paiements/PaiementsPage";
 import { RapportsPage } from "@/pages/rapports/RapportsPage";
-import { ConfigNotationPage } from "@/pages/etablissement/ConfigNotationPage";
-import { CyclesPage } from "@/pages/etablissement/CyclesPage";
-import { MatieresPage } from "@/pages/etablissement/MatieresPage";
-import { NiveauxPage } from "@/pages/etablissement/NiveauxPage";
-import { PeriodesPage } from "@/pages/etablissement/PeriodesPage";
 import { AbsencesPage } from "@/pages/eleves/AbsencesPage";
 import { EleveDossierPage } from "@/pages/eleves/EleveDossierPage";
 import { ElevesListPage } from "@/pages/eleves/ElevesListPage";
@@ -49,6 +47,8 @@ import { StatistiquesPage } from "@/pages/platform/StatistiquesPage";
 import { TenantCreatePage } from "@/pages/platform/TenantCreatePage";
 import { TenantUtilisateursPage } from "@/pages/platform/TenantUtilisateursPage";
 import { TenantsListPage } from "@/pages/platform/TenantsListPage";
+import { ValeursSystemePage } from "@/pages/platform/ValeursSystemePage";
+import { SallesPage } from "@/pages/salles/SallesPage";
 import { ProfilPage } from "@/pages/utilisateurs/ProfilPage";
 import { UtilisateursListPage } from "@/pages/utilisateurs/UtilisateursListPage";
 import { useAuthStore } from "@/stores/authStore";
@@ -116,24 +116,40 @@ export const router = createBrowserRouter([
               {
                 id: "etablissement-index",
                 index: true,
-                element: <Navigate to="annees" replace />,
+                element: <Navigate to="wizard" replace />,
+              },
+              {
+                id: "etablissement-wizard",
+                path: "wizard",
+                element: <WizardEtablissementPage />,
               },
               { id: "etablissement-annees", path: "annees", element: <AnneesPage /> },
               { id: "etablissement-periodes", path: "periodes", element: <PeriodesPage /> },
-              { id: "etablissement-cycles", path: "cycles", element: <CyclesPage /> },
-              { id: "etablissement-niveaux", path: "niveaux", element: <NiveauxPage /> },
-              {
-                id: "etablissement-classes",
-                path: "classes",
-                element: <EtablissementClassesPage />,
-              },
+              { id: "etablissement-classes", path: "classes", element: <ClassesPage /> },
+              { id: "etablissement-salles", path: "salles", element: <SallesPage /> },
               { id: "etablissement-matieres", path: "matieres", element: <MatieresPage /> },
               {
                 id: "etablissement-config-notation",
                 path: "config-notation",
                 element: <ConfigNotationPage />,
               },
+              {
+                id: "etablissement-niveaux-alias",
+                path: "niveaux",
+                element: <Navigate to="classes" replace />,
+              },
             ],
+          },
+
+          {
+            id: "classes-legacy",
+            path: "classes",
+            element: <Navigate to={ROUTES.classes} replace />,
+          },
+          {
+            id: "salles-legacy",
+            path: "salles",
+            element: <Navigate to={ROUTES.salles} replace />,
           },
 
           { id: "eleves-inscrire", path: "eleves/inscrire", element: <InscriptionPage /> },
@@ -146,7 +162,6 @@ export const router = createBrowserRouter([
           { id: "eleves", path: "eleves", element: <ElevesListPage /> },
 
           { id: "enseignants", path: "enseignants", element: <EnseignantsPage /> },
-          { id: "classes", path: "classes", element: <ClassesPage /> },
           { id: "absences", path: "absences", element: <AbsencesPage /> },
           { id: "paiements", path: "paiements", element: <PaiementsPage /> },
           { id: "documents", path: "documents", element: <HubDocumentairePage /> },
@@ -227,6 +242,7 @@ export const router = createBrowserRouter([
           { path: "statistiques", element: <StatistiquesPage /> },
           { path: "plans", element: <PlansPage /> },
           { path: "audit", element: <AuditLogsPage /> },
+          { path: "valeurs-systeme", element: <ValeursSystemePage /> },
           { path: "profil", element: <ProfilPage /> },
         ],
       },

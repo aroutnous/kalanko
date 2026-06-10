@@ -7,6 +7,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  ListTree,
   Receipt,
   Shield,
   User,
@@ -27,6 +28,7 @@ const PLATFORM_NAV_ITEMS = [
   { to: ROUTES.platformNotifications, label: "Notifications", icon: Bell },
   { to: ROUTES.platformStatistiques, label: "Statistiques", icon: BarChart3 },
   { to: ROUTES.platformPlans, label: "Plans", icon: FileText },
+  { to: ROUTES.platformValeursSysteme, label: "Valeurs système", icon: ListTree },
   { to: ROUTES.platformAudit, label: "Audit", icon: ClipboardList },
 ] as const;
 
