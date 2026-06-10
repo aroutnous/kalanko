@@ -15,9 +15,9 @@ from app.models.enums import ModePaiement, StatutPaiement, StatutSalaire, pg_enu
 class FraisScolaire(TenantScopedModel):
     __tablename__ = "frais_scolaires"
 
-    niveau_id: Mapped[uuid.UUID] = mapped_column(
+    classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("niveaux.id", ondelete="CASCADE"),
+        ForeignKey("classes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -31,7 +31,7 @@ class FraisScolaire(TenantScopedModel):
     montant: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     est_obligatoire: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    niveau: Mapped["Niveau"] = relationship(back_populates="frais_scolaires")  # noqa: F821
+    classe: Mapped["Classe"] = relationship(back_populates="frais_scolaires")  # noqa: F821
     paiements: Mapped[list["Paiement"]] = relationship(back_populates="frais")
 
 

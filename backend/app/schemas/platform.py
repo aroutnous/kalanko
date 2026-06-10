@@ -302,6 +302,32 @@ class StatistiquesPlateformeResponse(BaseModel):
     taux_utilisation_modules: dict[str, int]
 
 
+class ValeurSystemeCreate(BaseModel):
+    categorie: str = Field(..., min_length=1, max_length=50)
+    valeur: str = Field(..., min_length=1, max_length=255)
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    ordre: int = Field(default=0, ge=0)
+
+
+class ValeurSystemeUpdate(BaseModel):
+    valeur: str | None = Field(default=None, min_length=1, max_length=255)
+    metadata_json: dict[str, Any] | None = None
+    ordre: int | None = Field(default=None, ge=0)
+    actif: bool | None = None
+
+
+class ValeurSystemeResponse(BaseModel):
+    id: uuid.UUID
+    categorie: str
+    valeur: str
+    metadata_json: dict[str, Any] | None
+    ordre: int
+    actif: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class AuditLogResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID | None

@@ -33,9 +33,10 @@ from app.models.etablissement import (
     ConfigNotation,
     Cycle,
     Matiere,
-    Niveau,
     Periode,
+    Salle,
 )
+from app.models.valeur_systeme import ValeurSysteme
 from app.models.finance import CaisseJournaliere, Depense, FraisScolaire, Paiement, Salaire
 from app.models.pedagogie import Bulletin, BulletinLigne, Note
 from app.models.tenant import (
@@ -61,11 +62,12 @@ __all__ = [
     "AuditLog",
     "ResetToken",
     "Cycle",
-    "Niveau",
+    "Classe",
+    "Salle",
     "AnneeScolaire",
     "Periode",
-    "Classe",
     "Matiere",
+    "ValeurSysteme",
     "ConfigNotation",
     "Eleve",
     "Inscription",

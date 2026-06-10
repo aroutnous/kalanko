@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import TenantScopedModel
 
+
 class Cycle(TenantScopedModel):
     __tablename__ = "cycles"
 
@@ -17,11 +18,13 @@ class Cycle(TenantScopedModel):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     ordre: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    niveaux: Mapped[list["Niveau"]] = relationship(back_populates="cycle")
+    classes: Mapped[list["Classe"]] = relationship(back_populates="cycle")
 
 
-class Niveau(TenantScopedModel):
-    __tablename__ = "niveaux"
+class Classe(TenantScopedModel):
+    """Niveau scolaire (ex-niveaux) — ex. 6eme Annee."""
+
+    __tablename__ = "classes"
 
     cycle_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -31,11 +34,12 @@ class Niveau(TenantScopedModel):
     )
     nom: Mapped[str] = mapped_column(String(100), nullable=False)
     ordre: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    valeur_systeme_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    cycle: Mapped["Cycle"] = relationship(back_populates="niveaux")
-    matieres: Mapped[list["Matiere"]] = relationship(back_populates="niveau")
-    classes: Mapped[list["Classe"]] = relationship(back_populates="niveau")
-    frais_scolaires: Mapped[list["FraisScolaire"]] = relationship(back_populates="niveau")  # noqa: F821
+    cycle: Mapped["Cycle"] = relationship(back_populates="classes")
+    matieres: Mapped[list["Matiere"]] = relationship(back_populates="classe")
+    salles: Mapped[list["Salle"]] = relationship(back_populates="classe")
+    frais_scolaires: Mapped[list["FraisScolaire"]] = relationship(back_populates="classe")  # noqa: F821
 
 
 class AnneeScolaire(TenantScopedModel):
@@ -47,7 +51,7 @@ class AnneeScolaire(TenantScopedModel):
     est_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     periodes: Mapped[list["Periode"]] = relationship(back_populates="annee_scolaire")
-    classes: Mapped[list["Classe"]] = relationship(back_populates="annee_scolaire")
+    salles: Mapped[list["Salle"]] = relationship(back_populates="annee_scolaire")
 
 
 class Periode(TenantScopedModel):
@@ -67,12 +71,14 @@ class Periode(TenantScopedModel):
     annee_scolaire: Mapped["AnneeScolaire"] = relationship(back_populates="periodes")
 
 
-class Classe(TenantScopedModel):
-    __tablename__ = "classes"
+class Salle(TenantScopedModel):
+    """Division physique (ex-classes) — ex. 6eme A."""
 
-    niveau_id: Mapped[uuid.UUID] = mapped_column(
+    __tablename__ = "salles"
+
+    classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("niveaux.id", ondelete="CASCADE"),
+        ForeignKey("classes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -83,18 +89,19 @@ class Classe(TenantScopedModel):
         index=True,
     )
     nom: Mapped[str] = mapped_column(String(100), nullable=False)
-    capacite_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    nom_salle: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    capacite: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    niveau: Mapped["Niveau"] = relationship(back_populates="classes")
-    annee_scolaire: Mapped["AnneeScolaire"] = relationship(back_populates="classes")
+    classe: Mapped["Classe"] = relationship(back_populates="salles")
+    annee_scolaire: Mapped["AnneeScolaire"] = relationship(back_populates="salles")
 
 
 class Matiere(TenantScopedModel):
     __tablename__ = "matieres"
 
-    niveau_id: Mapped[uuid.UUID] = mapped_column(
+    classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("niveaux.id", ondelete="CASCADE"),
+        ForeignKey("classes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -102,7 +109,7 @@ class Matiere(TenantScopedModel):
     coefficient: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=1)
     est_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    niveau: Mapped["Niveau"] = relationship(back_populates="matieres")
+    classe: Mapped["Classe"] = relationship(back_populates="matieres")
 
 
 class ConfigNotation(TenantScopedModel):

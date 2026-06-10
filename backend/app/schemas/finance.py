@@ -10,7 +10,7 @@ from app.models.enums import ModePaiement, StatutPaiement, StatutSalaire
 
 
 class FraisScolaireCreate(BaseModel):
-    niveau_id: uuid.UUID
+    classe_id: uuid.UUID
     annee_scolaire_id: uuid.UUID
     libelle: str = Field(..., min_length=1, max_length=255)
     montant: Decimal = Field(..., gt=0)
@@ -20,7 +20,7 @@ class FraisScolaireCreate(BaseModel):
 class FraisScolaireResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    niveau_id: uuid.UUID
+    classe_id: uuid.UUID
     annee_scolaire_id: uuid.UUID
     libelle: str
     montant: Decimal

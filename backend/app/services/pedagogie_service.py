@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.eleve import Eleve, Inscription
 from app.models.enums import StatutBulletin, StatutInscription
-from app.models.etablissement import Classe, Matiere, Periode
+from app.models.etablissement import Matiere, Periode, Salle
 from app.models.pedagogie import Bulletin, BulletinLigne, Note
 from app.schemas.pedagogie import (
     BulletinGenererRequest,
@@ -73,7 +73,7 @@ class PedagogieService:
             self._get_eleve(item.eleve_id)
             self._get_matiere(item.matiere_id)
             self._get_periode(item.periode_id)
-            self._get_classe(item.classe_id)
+            self._get_salle(item.classe_id)
 
             existing = (
                 self.db.query(Note)
@@ -120,7 +120,7 @@ class PedagogieService:
         data: BulletinGenererRequest,
     ) -> list[BulletinResponse]:
         """Génère ou régénère les bulletins d'une classe pour une période."""
-        self._get_classe(data.classe_id)
+        self._get_salle(data.classe_id)
         self._get_periode(data.periode_id)
 
         eleve_ids = self._get_eleves_classe(data.classe_id)
@@ -315,7 +315,7 @@ class PedagogieService:
         periode_id: uuid.UUID,
     ) -> ResultatsClasseResponse:
         """Statistiques agrégées : moyennes par matière, classement, taux de réussite."""
-        self._get_classe(classe_id)
+        self._get_salle(classe_id)
         self._get_periode(periode_id)
 
         notes = (
@@ -485,18 +485,18 @@ class PedagogieService:
             )
         return periode
 
-    def _get_classe(self, classe_id: uuid.UUID) -> Classe:
-        classe = (
-            self.db.query(Classe)
-            .filter(Classe.id == classe_id, Classe.tenant_id == self.tenant_id)
+    def _get_salle(self, classe_id: uuid.UUID) -> Salle:
+        salle = (
+            self.db.query(Salle)
+            .filter(Salle.id == classe_id, Salle.tenant_id == self.tenant_id)
             .first()
         )
-        if classe is None:
+        if salle is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Classe introuvable",
+                detail="Salle introuvable",
             )
-        return classe
+        return salle
 
     def _get_bulletin(self, bulletin_id: uuid.UUID) -> Bulletin:
         bulletin = (

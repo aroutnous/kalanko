@@ -30,6 +30,9 @@ from app.schemas.platform import (
     ResetPasswordResponse,
     RevenusParMoisResponse,
     StatistiquesPlateformeResponse,
+    ValeurSystemeCreate,
+    ValeurSystemeResponse,
+    ValeurSystemeUpdate,
     TenantCreate,
     TenantCreateResponse,
     TenantResponse,
@@ -39,6 +42,7 @@ from app.schemas.platform import (
     UtilisateurTenantUpdate,
 )
 from app.services.platform_service import PlatformService
+from app.services.valeur_systeme_service import ValeurSystemeService
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
@@ -442,3 +446,58 @@ def reset_password_utilisateur_tenant(
         tenant_id, user_id
     )
     return ResetPasswordResponse(mot_de_passe_temporaire=mot_de_passe)
+
+
+@router.get("/valeurs-systeme", response_model=list[ValeurSystemeResponse])
+def list_valeurs_systeme(
+    db: DbSession,
+    user: PlatformAdmin,
+    categorie: str | None = Query(default=None),
+) -> list[ValeurSystemeResponse]:
+    rows = ValeurSystemeService(db).list_by_categorie(categorie)
+    return [ValeurSystemeResponse.model_validate(row) for row in rows]
+
+
+@router.post(
+    "/valeurs-systeme",
+    response_model=ValeurSystemeResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def creer_valeur_systeme(
+    body: ValeurSystemeCreate,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> ValeurSystemeResponse:
+    row = ValeurSystemeService(db).creer_valeur(
+        body.categorie,
+        body.valeur,
+        body.metadata_json,
+        body.ordre,
+    )
+    return ValeurSystemeResponse.model_validate(row)
+
+
+@router.put("/valeurs-systeme/{valeur_id}", response_model=ValeurSystemeResponse)
+def modifier_valeur_systeme(
+    valeur_id: uuid.UUID,
+    body: ValeurSystemeUpdate,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> ValeurSystemeResponse:
+    row = ValeurSystemeService(db).update_valeur(
+        valeur_id,
+        body.valeur,
+        body.metadata_json,
+        body.ordre,
+        body.actif,
+    )
+    return ValeurSystemeResponse.model_validate(row)
+
+
+@router.delete("/valeurs-systeme/{valeur_id}", status_code=status.HTTP_204_NO_CONTENT)
+def desactiver_valeur_systeme(
+    valeur_id: uuid.UUID,
+    db: DbSession,
+    user: PlatformAdmin,
+) -> None:
+    ValeurSystemeService(db).desactiver_valeur(valeur_id)

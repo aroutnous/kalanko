@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class CycleCreate(BaseModel):
@@ -29,25 +29,98 @@ class CycleResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class NiveauCreate(BaseModel):
+class ClasseCreate(BaseModel):
     cycle_id: uuid.UUID
     nom: str = Field(..., min_length=1, max_length=100)
     ordre: int = Field(default=0, ge=0)
+    valeur_systeme_ref: str | None = Field(default=None, max_length=255)
 
 
-class NiveauUpdate(BaseModel):
+class ClasseUpdate(BaseModel):
     nom: str | None = Field(default=None, min_length=1, max_length=100)
     ordre: int | None = Field(default=None, ge=0)
+    valeur_systeme_ref: str | None = Field(default=None, max_length=255)
 
 
-class NiveauResponse(BaseModel):
+class ClasseResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
     cycle_id: uuid.UUID
     nom: str
     ordre: int
+    valeur_systeme_ref: str | None
 
     model_config = {"from_attributes": True}
+
+
+class SalleCreate(BaseModel):
+    classe_id: uuid.UUID | None = None
+    annee_scolaire_id: uuid.UUID
+    nom: str | None = Field(default=None, min_length=1, max_length=100)
+    nom_salle: str | None = Field(default=None, min_length=1, max_length=100)
+    capacite: int | None = Field(default=None, ge=1)
+    niveau_id: uuid.UUID | None = Field(default=None, exclude=True)
+    capacite_max: int | None = Field(default=None, exclude=True)
+
+    @model_validator(mode="after")
+    def resolve_legacy_fields(self) -> "SalleCreate":
+        if self.niveau_id is not None and self.classe_id is None:
+            object.__setattr__(self, "classe_id", self.niveau_id)
+        if self.classe_id is None:
+            raise ValueError("classe_id requis")
+        if self.capacite_max is not None and self.capacite is None:
+            object.__setattr__(self, "capacite", self.capacite_max)
+        if not self.nom_salle and self.nom:
+            object.__setattr__(self, "nom_salle", self.nom)
+        if not self.nom and self.nom_salle:
+            object.__setattr__(self, "nom", self.nom_salle)
+        if not self.nom and not self.nom_salle:
+            raise ValueError("nom_salle ou nom requis")
+        return self
+
+
+class SalleUpdate(BaseModel):
+    nom: str | None = Field(default=None, min_length=1, max_length=100)
+    nom_salle: str | None = Field(default=None, min_length=1, max_length=100)
+    capacite: int | None = Field(default=None, ge=1)
+    capacite_max: int | None = Field(default=None, exclude=True)
+
+    @model_validator(mode="after")
+    def resolve_capacite(self) -> "SalleUpdate":
+        if self.capacite_max is not None and self.capacite is None:
+            object.__setattr__(self, "capacite", self.capacite_max)
+        return self
+
+
+class SalleResponse(BaseModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    classe_id: uuid.UUID
+    annee_scolaire_id: uuid.UUID
+    nom: str
+    nom_salle: str | None
+    capacite: int | None
+
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_salle(cls, salle: object) -> "SalleResponse":
+        data = SalleResponse.model_validate(salle)
+        return data
+
+
+class SalleEffectifResponse(BaseModel):
+    salle_id: uuid.UUID
+    effectif: int
+    capacite: int | None
+    est_complete: bool
+
+
+# Alias rétrocompatibilité API
+NiveauCreate = ClasseCreate
+NiveauUpdate = ClasseUpdate
+NiveauResponse = ClasseResponse
+ClasseEffectifResponse = SalleEffectifResponse
 
 
 class AnneeScolaireCreate(BaseModel):
@@ -102,41 +175,20 @@ class PeriodeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ClasseCreate(BaseModel):
-    niveau_id: uuid.UUID
-    annee_scolaire_id: uuid.UUID
-    nom: str = Field(..., min_length=1, max_length=100)
-    capacite_max: int | None = Field(default=None, ge=1)
-
-
-class ClasseUpdate(BaseModel):
-    nom: str | None = Field(default=None, min_length=1, max_length=100)
-    capacite_max: int | None = Field(default=None, ge=1)
-
-
-class ClasseResponse(BaseModel):
-    id: uuid.UUID
-    tenant_id: uuid.UUID
-    niveau_id: uuid.UUID
-    annee_scolaire_id: uuid.UUID
-    nom: str
-    capacite_max: int | None
-
-    model_config = {"from_attributes": True}
-
-
-class ClasseEffectifResponse(BaseModel):
-    classe_id: uuid.UUID
-    effectif: int
-    capacite_max: int | None
-    est_complete: bool
-
-
 class MatiereCreate(BaseModel):
-    niveau_id: uuid.UUID
+    classe_id: uuid.UUID | None = None
     nom: str = Field(..., min_length=1, max_length=100)
     coefficient: Decimal = Field(default=Decimal("1.00"), gt=0)
     est_active: bool = True
+    niveau_id: uuid.UUID | None = Field(default=None, exclude=True)
+
+    @model_validator(mode="after")
+    def resolve_niveau_id(self) -> "MatiereCreate":
+        if self.niveau_id is not None and self.classe_id is None:
+            object.__setattr__(self, "classe_id", self.niveau_id)
+        if self.classe_id is None:
+            raise ValueError("classe_id requis")
+        return self
 
 
 class MatiereUpdate(BaseModel):
@@ -148,7 +200,7 @@ class MatiereUpdate(BaseModel):
 class MatiereResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    niveau_id: uuid.UUID
+    classe_id: uuid.UUID
     nom: str
     coefficient: Decimal
     est_active: bool
@@ -178,13 +230,17 @@ class ConfigNotationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class NiveauStructureResponse(NiveauResponse):
-    classes: list[ClasseResponse] = Field(default_factory=list)
+class ClasseStructureResponse(ClasseResponse):
+    salles: list[SalleResponse] = Field(default_factory=list)
     matieres: list[MatiereResponse] = Field(default_factory=list)
 
 
 class CycleStructureResponse(CycleResponse):
-    niveaux: list[NiveauStructureResponse] = Field(default_factory=list)
+    classes: list[ClasseStructureResponse] = Field(default_factory=list)
+
+
+# Alias structure
+NiveauStructureResponse = ClasseStructureResponse
 
 
 class EtablissementStructure(BaseModel):
@@ -199,6 +255,55 @@ class EtablissementConfig(BaseModel):
 
 
 class DupliquerStructureResponse(BaseModel):
-    classes_copiees: int
+    salles_copiees: int
     matieres_copiees: int
+    message: str
+    classes_copiees: int | None = None
+
+
+class WizardPeriodeItem(BaseModel):
+    periode: str
+    date_debut: date
+    date_fin: date
+
+
+class WizardClasseItem(BaseModel):
+    classe: str
+    cycle: str
+
+
+class WizardSalleItem(BaseModel):
+    classe: str
+    nom_salle: str
+    capacite: int = Field(..., ge=1)
+
+
+class WizardMatiereItem(BaseModel):
+    classe: str
+    nom: str
+    coefficient: Decimal = Field(default=Decimal("1.00"), gt=0)
+
+
+class WizardConfigNotation(BaseModel):
+    note_max: Decimal = Field(default=Decimal("20.00"), gt=0)
+    note_passage: Decimal = Field(default=Decimal("10.00"), ge=0)
+    arrondi: int = Field(default=2, ge=0, le=4)
+
+
+class WizardEtablissementData(BaseModel):
+    annee_scolaire: str
+    periodes: list[WizardPeriodeItem]
+    cycles_selectionnes: list[str]
+    classes_selectionnees: list[WizardClasseItem]
+    salles: list[WizardSalleItem]
+    matieres: list[WizardMatiereItem]
+    config_notation: WizardConfigNotation
+
+
+class WizardEtablissementResponse(BaseModel):
+    annee_scolaire_id: uuid.UUID
+    periodes_creees: int
+    classes_creees: int
+    salles_creees: int
+    matieres_creees: int
     message: str

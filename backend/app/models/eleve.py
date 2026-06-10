@@ -57,7 +57,7 @@ class Inscription(TenantScopedModel):
     )
     classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("classes.id", ondelete="CASCADE"),
+        ForeignKey("salles.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -88,7 +88,7 @@ class Absence(TenantScopedModel):
     )
     classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("classes.id", ondelete="CASCADE"),
+        ForeignKey("salles.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

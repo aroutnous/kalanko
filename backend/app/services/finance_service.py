@@ -20,7 +20,7 @@ from app.models.enums import (
     StatutPaiement,
     StatutSalaire,
 )
-from app.models.etablissement import AnneeScolaire, Classe, Niveau
+from app.models.etablissement import AnneeScolaire, Classe, Salle
 from app.models.finance import CaisseJournaliere, Depense, FraisScolaire, Paiement, Salaire
 from app.models.auth import Utilisateur
 from app.schemas.finance import (
@@ -96,12 +96,12 @@ class FinanceService:
         return f"{prefix}{existing + 1:04d}"
 
     def creer_frais(self, data: FraisScolaireCreate) -> FraisScolaireResponse:
-        self._get_niveau(data.niveau_id)
+        self._get_classe(data.classe_id)
         self._get_annee(data.annee_scolaire_id)
 
         frais = FraisScolaire(
             tenant_id=self.tenant_id,
-            niveau_id=data.niveau_id,
+            classe_id=data.classe_id,
             annee_scolaire_id=data.annee_scolaire_id,
             libelle=data.libelle,
             montant=data.montant,
@@ -114,15 +114,15 @@ class FinanceService:
 
     def list_frais(
         self,
-        niveau_id: uuid.UUID | None = None,
+        classe_id: uuid.UUID | None = None,
         annee_id: uuid.UUID | None = None,
     ) -> list[FraisScolaireResponse]:
         q = self.db.query(FraisScolaire).filter(
             FraisScolaire.tenant_id == self.tenant_id
         )
-        if niveau_id is not None:
-            self._get_niveau(niveau_id)
-            q = q.filter(FraisScolaire.niveau_id == niveau_id)
+        if classe_id is not None:
+            self._get_classe(classe_id)
+            q = q.filter(FraisScolaire.classe_id == classe_id)
         if annee_id is not None:
             self._get_annee(annee_id)
             q = q.filter(FraisScolaire.annee_scolaire_id == annee_id)
@@ -227,12 +227,12 @@ class FinanceService:
         eleve = self._get_eleve(eleve_id)
         self._get_annee(annee_id)
 
-        niveau_id = self._get_niveau_eleve(eleve.id)
+        classe_id = self._get_niveau_eleve(eleve.id)
         frais_list = (
             self.db.query(FraisScolaire)
             .filter(
                 FraisScolaire.tenant_id == self.tenant_id,
-                FraisScolaire.niveau_id == niveau_id,
+                FraisScolaire.classe_id == classe_id,
                 FraisScolaire.annee_scolaire_id == annee_id,
             )
             .all()
@@ -634,8 +634,8 @@ class FinanceService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Aucune inscription active pour cet élève",
             )
-        classe = self._get_classe(inscription.classe_id)
-        return classe.niveau_id
+        salle = self._get_salle(inscription.classe_id)
+        return salle.classe_id
 
     def _get_eleve(self, eleve_id: uuid.UUID) -> Eleve:
         eleve = (
@@ -676,18 +676,18 @@ class FinanceService:
             )
         return paiement
 
-    def _get_niveau(self, niveau_id: uuid.UUID) -> Niveau:
-        niveau = (
-            self.db.query(Niveau)
-            .filter(Niveau.id == niveau_id, Niveau.tenant_id == self.tenant_id)
+    def _get_classe(self, classe_id: uuid.UUID) -> Classe:
+        classe = (
+            self.db.query(Classe)
+            .filter(Classe.id == classe_id, Classe.tenant_id == self.tenant_id)
             .first()
         )
-        if niveau is None:
+        if classe is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Niveau introuvable",
+                detail="Classe introuvable",
             )
-        return niveau
+        return classe
 
     def _get_annee(self, annee_id: uuid.UUID) -> AnneeScolaire:
         annee = (
@@ -705,18 +705,18 @@ class FinanceService:
             )
         return annee
 
-    def _get_classe(self, classe_id: uuid.UUID) -> Classe:
-        classe = (
-            self.db.query(Classe)
-            .filter(Classe.id == classe_id, Classe.tenant_id == self.tenant_id)
+    def _get_salle(self, salle_id: uuid.UUID) -> Salle:
+        salle = (
+            self.db.query(Salle)
+            .filter(Salle.id == salle_id, Salle.tenant_id == self.tenant_id)
             .first()
         )
-        if classe is None:
+        if salle is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Classe introuvable",
+                detail="Salle introuvable",
             )
-        return classe
+        return salle
 
     def _get_employe(self, employe_id: uuid.UUID) -> Utilisateur:
         employe = (

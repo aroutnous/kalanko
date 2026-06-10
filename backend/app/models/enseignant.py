@@ -77,7 +77,7 @@ class EnseignantMatiere(TenantScopedModel):
     )
     classe_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("classes.id", ondelete="CASCADE"),
+        ForeignKey("salles.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
@@ -108,7 +108,7 @@ class EnseignantClasse(TenantScopedModel):
     )
     classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("classes.id", ondelete="CASCADE"),
+        ForeignKey("salles.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

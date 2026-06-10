@@ -1,6 +1,8 @@
 """Logique métier M2 — Gestion établissement scolaire."""
 
+import re
 import uuid
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -14,8 +16,8 @@ from app.models.etablissement import (
     ConfigNotation,
     Cycle,
     Matiere,
-    Niveau,
     Periode,
+    Salle,
 )
 from app.models.pedagogie import Note
 from app.schemas.etablissement import (
@@ -25,11 +27,13 @@ from app.schemas.etablissement import (
     ClasseCreate,
     ClasseEffectifResponse,
     ClasseResponse,
+    ClasseStructureResponse,
     ClasseUpdate,
     ConfigNotationResponse,
     ConfigNotationUpdate,
     CycleCreate,
     CycleResponse,
+    CycleStructureResponse,
     CycleUpdate,
     DupliquerStructureResponse,
     EtablissementConfig,
@@ -43,6 +47,12 @@ from app.schemas.etablissement import (
     PeriodeCreate,
     PeriodeResponse,
     PeriodeUpdate,
+    SalleCreate,
+    SalleEffectifResponse,
+    SalleResponse,
+    SalleUpdate,
+    WizardEtablissementData,
+    WizardEtablissementResponse,
 )
 from app.services.audit_service import log_audit
 
@@ -103,7 +113,7 @@ class EtablissementService:
             .order_by(Cycle.ordre, Cycle.nom)
             .all()
         )
-        return [CycleResponse.model_validate(c) for c in cycles]
+        return [CycleResponse.model_validate(cycle) for cycle in cycles]
 
     def get_cycle(self, cycle_id: uuid.UUID) -> CycleResponse:
         return CycleResponse.model_validate(self._get_cycle(cycle_id))
@@ -119,76 +129,186 @@ class EtablissementService:
 
     def delete_cycle(self, cycle_id: uuid.UUID) -> None:
         cycle = self._get_cycle(cycle_id)
-        if (
-            self.db.query(Niveau)
-            .filter(Niveau.cycle_id == cycle_id, Niveau.tenant_id == self.tenant_id)
+        has_classes = (
+            self.db.query(Classe)
+            .filter(Classe.tenant_id == self.tenant_id, Classe.cycle_id == cycle_id)
             .count()
             > 0
-        ):
+        )
+        if has_classes:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Impossible de supprimer un cycle contenant des niveaux",
+                detail="Impossible de supprimer un cycle contenant des classes",
             )
         self.db.delete(cycle)
         self.db.commit()
         self._audit("establishment.cycle.delete", "cycles", cycle_id)
 
-    # ── Niveaux ─────────────────────────────────────────────────────────────
+    # ── Classes (niveaux pédagogiques) ─────────────────────────────────────
 
-    def create_niveau(self, data: NiveauCreate) -> NiveauResponse:
+    def create_classe(self, data: ClasseCreate) -> ClasseResponse:
         self._get_cycle(data.cycle_id)
-        niveau = Niveau(tenant_id=self.tenant_id, **data.model_dump())
-        self.db.add(niveau)
+        classe = Classe(tenant_id=self.tenant_id, **data.model_dump())
+        self.db.add(classe)
         self.db.commit()
-        self.db.refresh(niveau)
-        self._audit("establishment.niveau.create", "niveaux", niveau.id)
-        return NiveauResponse.model_validate(niveau)
+        self.db.refresh(classe)
+        self._audit("establishment.classe.create", "classes", classe.id)
+        return ClasseResponse.model_validate(classe)
 
-    def list_niveaux(self, cycle_id: uuid.UUID | None = None) -> list[NiveauResponse]:
-        query = self.db.query(Niveau).filter(Niveau.tenant_id == self.tenant_id)
+    def list_classes(self, cycle_id: uuid.UUID | None = None) -> list[ClasseResponse]:
+        query = self.db.query(Classe).filter(Classe.tenant_id == self.tenant_id)
         if cycle_id is not None:
             self._get_cycle(cycle_id)
-            query = query.filter(Niveau.cycle_id == cycle_id)
-        niveaux = query.order_by(Niveau.ordre, Niveau.nom).all()
-        return [NiveauResponse.model_validate(n) for n in niveaux]
+            query = query.filter(Classe.cycle_id == cycle_id)
+        classes = query.order_by(Classe.ordre, Classe.nom).all()
+        return [ClasseResponse.model_validate(classe) for classe in classes]
+
+    def get_classe(self, classe_id: uuid.UUID) -> ClasseResponse:
+        return ClasseResponse.model_validate(self._get_classe(classe_id))
+
+    def update_classe(self, classe_id: uuid.UUID, data: ClasseUpdate) -> ClasseResponse:
+        classe = self._get_classe(classe_id)
+        payload = data.model_dump(exclude_unset=True)
+        for field, value in payload.items():
+            setattr(classe, field, value)
+        self.db.commit()
+        self.db.refresh(classe)
+        self._audit("establishment.classe.update", "classes", classe.id)
+        return ClasseResponse.model_validate(classe)
+
+    def delete_classe(self, classe_id: uuid.UUID) -> None:
+        classe = self._get_classe(classe_id)
+        has_salles = (
+            self.db.query(Salle)
+            .filter(Salle.tenant_id == self.tenant_id, Salle.classe_id == classe_id)
+            .count()
+            > 0
+        )
+        if has_salles:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Impossible de supprimer une classe contenant des salles",
+            )
+        has_matieres = (
+            self.db.query(Matiere)
+            .filter(Matiere.tenant_id == self.tenant_id, Matiere.classe_id == classe_id)
+            .count()
+            > 0
+        )
+        if has_matieres:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Impossible de supprimer une classe contenant des matières",
+            )
+        self.db.delete(classe)
+        self.db.commit()
+        self._audit("establishment.classe.delete", "classes", classe_id)
+
+    # ── Alias niveaux (rétrocompatibilité API) ─────────────────────────────
+
+    def create_niveau(self, data: NiveauCreate) -> NiveauResponse:
+        return NiveauResponse.model_validate(self.create_classe(data))
+
+    def list_niveaux(self, cycle_id: uuid.UUID | None = None) -> list[NiveauResponse]:
+        return [
+            NiveauResponse.model_validate(classe)
+            for classe in self.list_classes(cycle_id=cycle_id)
+        ]
 
     def get_niveau(self, niveau_id: uuid.UUID) -> NiveauResponse:
-        return NiveauResponse.model_validate(self._get_niveau(niveau_id))
+        return NiveauResponse.model_validate(self.get_classe(niveau_id))
 
     def update_niveau(self, niveau_id: uuid.UUID, data: NiveauUpdate) -> NiveauResponse:
-        niveau = self._get_niveau(niveau_id)
-        for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(niveau, field, value)
-        self.db.commit()
-        self.db.refresh(niveau)
-        self._audit("establishment.niveau.update", "niveaux", niveau.id)
-        return NiveauResponse.model_validate(niveau)
+        return NiveauResponse.model_validate(self.update_classe(niveau_id, data))
 
     def delete_niveau(self, niveau_id: uuid.UUID) -> None:
-        niveau = self._get_niveau(niveau_id)
-        if (
-            self.db.query(Classe)
-            .filter(Classe.niveau_id == niveau_id, Classe.tenant_id == self.tenant_id)
-            .count()
-            > 0
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Impossible de supprimer un niveau contenant des classes",
-            )
-        if (
-            self.db.query(Matiere)
-            .filter(Matiere.niveau_id == niveau_id, Matiere.tenant_id == self.tenant_id)
-            .count()
-            > 0
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Impossible de supprimer un niveau contenant des matières",
-            )
-        self.db.delete(niveau)
+        self.delete_classe(niveau_id)
+
+    # ── Salles (divisions physiques) ───────────────────────────────────────
+
+    def create_salle(self, data: SalleCreate) -> SalleResponse:
+        self._get_classe(data.classe_id)
+        self._get_annee(data.annee_scolaire_id)
+        payload = data.model_dump(exclude_unset=True)
+        if not payload.get("nom") and payload.get("nom_salle"):
+            payload["nom"] = payload["nom_salle"]
+        salle = Salle(tenant_id=self.tenant_id, **payload)
+        self.db.add(salle)
         self.db.commit()
-        self._audit("establishment.niveau.delete", "niveaux", niveau_id)
+        self.db.refresh(salle)
+        self._audit("establishment.salle.create", "salles", salle.id)
+        return SalleResponse.model_validate(salle)
+
+    def list_salles(
+        self,
+        classe_id: uuid.UUID | None = None,
+        annee_scolaire_id: uuid.UUID | None = None,
+    ) -> list[SalleResponse]:
+        query = self.db.query(Salle).filter(Salle.tenant_id == self.tenant_id)
+        if classe_id is not None:
+            self._get_classe(classe_id)
+            query = query.filter(Salle.classe_id == classe_id)
+        if annee_scolaire_id is not None:
+            self._get_annee(annee_scolaire_id)
+            query = query.filter(Salle.annee_scolaire_id == annee_scolaire_id)
+        salles = query.order_by(Salle.nom).all()
+        return [SalleResponse.model_validate(salle) for salle in salles]
+
+    def get_salle(self, salle_id: uuid.UUID) -> SalleResponse:
+        return SalleResponse.model_validate(self._get_salle(salle_id))
+
+    def update_salle(self, salle_id: uuid.UUID, data: SalleUpdate) -> SalleResponse:
+        salle = self._get_salle(salle_id)
+        payload = data.model_dump(exclude_unset=True)
+        if "nom_salle" in payload and "nom" not in payload:
+            payload["nom"] = payload["nom_salle"]
+        for field, value in payload.items():
+            setattr(salle, field, value)
+        self.db.commit()
+        self.db.refresh(salle)
+        self._audit("establishment.salle.update", "salles", salle.id)
+        return SalleResponse.model_validate(salle)
+
+    def delete_salle(self, salle_id: uuid.UUID) -> None:
+        salle = self._get_salle(salle_id)
+        has_inscriptions = (
+            self.db.query(Inscription)
+            .filter(
+                Inscription.tenant_id == self.tenant_id,
+                Inscription.classe_id == salle_id,
+            )
+            .count()
+            > 0
+        )
+        if has_inscriptions:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Impossible de supprimer une salle avec des inscriptions",
+            )
+        self.db.delete(salle)
+        self.db.commit()
+        self._audit("establishment.salle.delete", "salles", salle_id)
+
+    def get_salle_effectif(self, salle_id: uuid.UUID) -> SalleEffectifResponse:
+        salle = self._get_salle(salle_id)
+        effectif = (
+            self.db.query(Inscription)
+            .filter(
+                Inscription.tenant_id == self.tenant_id,
+                Inscription.classe_id == salle_id,
+            )
+            .count()
+        )
+        est_complete = salle.capacite is not None and effectif >= salle.capacite
+        return SalleEffectifResponse(
+            salle_id=salle.id,
+            effectif=effectif,
+            capacite=salle.capacite,
+            est_complete=est_complete,
+        )
+
+    def get_classe_effectif(self, classe_id: uuid.UUID) -> ClasseEffectifResponse:
+        return ClasseEffectifResponse.model_validate(self.get_salle_effectif(classe_id))
 
     # ── Années scolaires ────────────────────────────────────────────────────
 
@@ -214,7 +334,7 @@ class EtablissementService:
             .order_by(AnneeScolaire.date_debut.desc())
             .all()
         )
-        return [AnneeScolaireResponse.model_validate(a) for a in annees]
+        return [AnneeScolaireResponse.model_validate(annee) for annee in annees]
 
     def get_annee_scolaire(self, annee_id: uuid.UUID) -> AnneeScolaireResponse:
         return AnneeScolaireResponse.model_validate(self._get_annee(annee_id))
@@ -236,11 +356,13 @@ class EtablissementService:
         return AnneeScolaireResponse.model_validate(annee)
 
     def update_annee_scolaire(
-        self, annee_id: uuid.UUID, data: AnneeScolaireUpdate
+        self,
+        annee_id: uuid.UUID,
+        data: AnneeScolaireUpdate,
     ) -> AnneeScolaireResponse:
         annee = self._get_annee(annee_id)
         payload = data.model_dump(exclude_unset=True)
-        if "est_active" in payload and payload["est_active"]:
+        if payload.get("est_active"):
             self._deactivate_all_annees()
         date_debut = payload.get("date_debut", annee.date_debut)
         date_fin = payload.get("date_fin", annee.date_fin)
@@ -282,14 +404,15 @@ class EtablissementService:
         return PeriodeResponse.model_validate(periode)
 
     def list_periodes(
-        self, annee_scolaire_id: uuid.UUID | None = None
+        self,
+        annee_scolaire_id: uuid.UUID | None = None,
     ) -> list[PeriodeResponse]:
         query = self.db.query(Periode).filter(Periode.tenant_id == self.tenant_id)
         if annee_scolaire_id is not None:
             self._get_annee(annee_scolaire_id)
             query = query.filter(Periode.annee_scolaire_id == annee_scolaire_id)
         periodes = query.order_by(Periode.ordre, Periode.nom).all()
-        return [PeriodeResponse.model_validate(p) for p in periodes]
+        return [PeriodeResponse.model_validate(periode) for periode in periodes]
 
     def get_periode(self, periode_id: uuid.UUID) -> PeriodeResponse:
         return PeriodeResponse.model_validate(self._get_periode(periode_id))
@@ -311,102 +434,27 @@ class EtablissementService:
         self._audit("establishment.periode.update", "periodes", periode.id)
         return PeriodeResponse.model_validate(periode)
 
-    # ── Classes ─────────────────────────────────────────────────────────────
-
-    def create_classe(self, data: ClasseCreate) -> ClasseResponse:
-        self._get_niveau(data.niveau_id)
-        self._get_annee(data.annee_scolaire_id)
-        classe = Classe(tenant_id=self.tenant_id, **data.model_dump())
-        self.db.add(classe)
-        self.db.commit()
-        self.db.refresh(classe)
-        self._audit("establishment.classe.create", "classes", classe.id)
-        return ClasseResponse.model_validate(classe)
-
-    def list_classes(
-        self,
-        niveau_id: uuid.UUID | None = None,
-        annee_scolaire_id: uuid.UUID | None = None,
-    ) -> list[ClasseResponse]:
-        query = self.db.query(Classe).filter(Classe.tenant_id == self.tenant_id)
-        if niveau_id is not None:
-            self._get_niveau(niveau_id)
-            query = query.filter(Classe.niveau_id == niveau_id)
-        if annee_scolaire_id is not None:
-            self._get_annee(annee_scolaire_id)
-            query = query.filter(Classe.annee_scolaire_id == annee_scolaire_id)
-        classes = query.order_by(Classe.nom).all()
-        return [ClasseResponse.model_validate(c) for c in classes]
-
-    def get_classe(self, classe_id: uuid.UUID) -> ClasseResponse:
-        return ClasseResponse.model_validate(self._get_classe(classe_id))
-
-    def update_classe(self, classe_id: uuid.UUID, data: ClasseUpdate) -> ClasseResponse:
-        classe = self._get_classe(classe_id)
-        for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(classe, field, value)
-        self.db.commit()
-        self.db.refresh(classe)
-        self._audit("establishment.classe.update", "classes", classe.id)
-        return ClasseResponse.model_validate(classe)
-
-    def delete_classe(self, classe_id: uuid.UUID) -> None:
-        classe = self._get_classe(classe_id)
-        if (
-            self.db.query(Inscription)
-            .filter(
-                Inscription.classe_id == classe_id,
-                Inscription.tenant_id == self.tenant_id,
-            )
-            .count()
-            > 0
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Impossible de supprimer une classe avec des inscriptions",
-            )
-        self.db.delete(classe)
-        self.db.commit()
-        self._audit("establishment.classe.delete", "classes", classe_id)
-
-    def get_classe_effectif(self, classe_id: uuid.UUID) -> ClasseEffectifResponse:
-        classe = self._get_classe(classe_id)
-        effectif = (
-            self.db.query(Inscription)
-            .filter(
-                Inscription.classe_id == classe_id,
-                Inscription.tenant_id == self.tenant_id,
-            )
-            .count()
-        )
-        est_complete = (
-            classe.capacite_max is not None and effectif >= classe.capacite_max
-        )
-        return ClasseEffectifResponse(
-            classe_id=classe.id,
-            effectif=effectif,
-            capacite_max=classe.capacite_max,
-            est_complete=est_complete,
-        )
-
     # ── Matières ────────────────────────────────────────────────────────────
 
     def create_matiere(self, data: MatiereCreate) -> MatiereResponse:
-        self._get_niveau(data.niveau_id)
-        matiere = Matiere(tenant_id=self.tenant_id, **data.model_dump())
+        self._get_classe(data.classe_id)
+        matiere = Matiere(
+            tenant_id=self.tenant_id,
+            **data.model_dump(exclude={"niveau_id"}),
+        )
         self.db.add(matiere)
         self.db.commit()
         self.db.refresh(matiere)
         self._audit("establishment.matiere.create", "matieres", matiere.id)
         return MatiereResponse.model_validate(matiere)
 
-    def list_matieres(self, niveau_id: uuid.UUID | None = None) -> list[MatiereResponse]:
+    def list_matieres(self, classe_id: uuid.UUID | None = None) -> list[MatiereResponse]:
         query = self.db.query(Matiere).filter(Matiere.tenant_id == self.tenant_id)
-        if niveau_id is not None:
-            self._get_niveau(niveau_id)
-            query = query.filter(Matiere.niveau_id == niveau_id)
+        if classe_id is not None:
+            self._get_classe(classe_id)
+            query = query.filter(Matiere.classe_id == classe_id)
         matieres = query.order_by(Matiere.nom).all()
-        return [MatiereResponse.model_validate(m) for m in matieres]
+        return [MatiereResponse.model_validate(matiere) for matiere in matieres]
 
     def get_matiere(self, matiere_id: uuid.UUID) -> MatiereResponse:
         return MatiereResponse.model_validate(self._get_matiere(matiere_id))
@@ -422,12 +470,13 @@ class EtablissementService:
 
     def delete_matiere(self, matiere_id: uuid.UUID) -> None:
         matiere = self._get_matiere(matiere_id)
-        if (
+        has_notes = (
             self.db.query(Note)
-            .filter(Note.matiere_id == matiere_id, Note.tenant_id == self.tenant_id)
+            .filter(Note.tenant_id == self.tenant_id, Note.matiere_id == matiere_id)
             .count()
             > 0
-        ):
+        )
+        if has_notes:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Impossible de supprimer une matière avec des notes",
@@ -457,31 +506,31 @@ class EtablissementService:
         return ConfigNotationResponse.model_validate(config)
 
     def update_config_notation(self, data: ConfigNotationUpdate) -> ConfigNotationResponse:
-        config_row = (
+        config = (
             self.db.query(ConfigNotation)
             .filter(ConfigNotation.tenant_id == self.tenant_id)
             .first()
         )
-        if config_row is None:
-            config_row = ConfigNotation(
+        if config is None:
+            config = ConfigNotation(
                 tenant_id=self.tenant_id,
                 note_max=DEFAULT_NOTE_MAX,
                 note_passage=DEFAULT_NOTE_PASSAGE,
                 arrondi=DEFAULT_ARRONDI,
             )
-            self.db.add(config_row)
+            self.db.add(config)
             self.db.flush()
         for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(config_row, field, value)
-        if config_row.note_passage > config_row.note_max:
+            setattr(config, field, value)
+        if config.note_passage > config.note_max:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="note_passage ne peut pas dépasser note_max",
             )
         self.db.commit()
-        self.db.refresh(config_row)
-        self._audit("establishment.config_notation.update", "config_notation", config_row.id)
-        return ConfigNotationResponse.model_validate(config_row)
+        self.db.refresh(config)
+        self._audit("establishment.config_notation.update", "config_notation", config.id)
+        return ConfigNotationResponse.model_validate(config)
 
     # ── Structure globale ───────────────────────────────────────────────────
 
@@ -492,16 +541,16 @@ class EtablissementService:
             .order_by(Cycle.ordre, Cycle.nom)
             .all()
         )
-        niveaux = (
-            self.db.query(Niveau)
-            .filter(Niveau.tenant_id == self.tenant_id)
-            .order_by(Niveau.ordre, Niveau.nom)
-            .all()
-        )
         classes = (
             self.db.query(Classe)
             .filter(Classe.tenant_id == self.tenant_id)
-            .order_by(Classe.nom)
+            .order_by(Classe.ordre, Classe.nom)
+            .all()
+        )
+        salles = (
+            self.db.query(Salle)
+            .filter(Salle.tenant_id == self.tenant_id)
+            .order_by(Salle.nom)
             .all()
         )
         matieres = (
@@ -512,57 +561,50 @@ class EtablissementService:
         )
         annees = self.list_annees_scolaires()
 
-        niveaux_by_cycle: dict[uuid.UUID, list] = {}
-        for n in niveaux:
-            niveaux_by_cycle.setdefault(n.cycle_id, []).append(n)
+        classes_by_cycle: dict[uuid.UUID, list[Classe]] = {}
+        for classe in classes:
+            classes_by_cycle.setdefault(classe.cycle_id, []).append(classe)
 
-        classes_by_niveau: dict[uuid.UUID, list] = {}
-        for c in classes:
-            classes_by_niveau.setdefault(c.niveau_id, []).append(c)
+        salles_by_classe: dict[uuid.UUID, list[Salle]] = {}
+        for salle in salles:
+            salles_by_classe.setdefault(salle.classe_id, []).append(salle)
 
-        matieres_by_niveau: dict[uuid.UUID, list] = {}
-        for m in matieres:
-            matieres_by_niveau.setdefault(m.niveau_id, []).append(m)
+        matieres_by_classe: dict[uuid.UUID, list[Matiere]] = {}
+        for matiere in matieres:
+            matieres_by_classe.setdefault(matiere.classe_id, []).append(matiere)
 
-        from app.schemas.etablissement import (
-            CycleStructureResponse,
-            NiveauStructureResponse,
-        )
-
-        cycle_tree = []
+        cycle_nodes: list[CycleStructureResponse] = []
         for cycle in cycles:
-            niveau_nodes = []
-            for niveau in niveaux_by_cycle.get(cycle.id, []):
-                niveau_nodes.append(
-                    NiveauStructureResponse(
-                        **NiveauResponse.model_validate(niveau).model_dump(),
-                        classes=[
-                            ClasseResponse.model_validate(c)
-                            for c in classes_by_niveau.get(niveau.id, [])
+            class_nodes: list[ClasseStructureResponse] = []
+            for classe in classes_by_cycle.get(cycle.id, []):
+                class_nodes.append(
+                    ClasseStructureResponse(
+                        **ClasseResponse.model_validate(classe).model_dump(),
+                        salles=[
+                            SalleResponse.model_validate(salle)
+                            for salle in salles_by_classe.get(classe.id, [])
                         ],
                         matieres=[
-                            MatiereResponse.model_validate(m)
-                            for m in matieres_by_niveau.get(niveau.id, [])
+                            MatiereResponse.model_validate(matiere)
+                            for matiere in matieres_by_classe.get(classe.id, [])
                         ],
                     )
                 )
-            cycle_tree.append(
+            cycle_nodes.append(
                 CycleStructureResponse(
                     **CycleResponse.model_validate(cycle).model_dump(),
-                    niveaux=niveau_nodes,
+                    classes=class_nodes,
                 )
             )
 
-        annee_active = next((a for a in annees if a.est_active), None)
+        annee_active = next((annee for annee in annees if annee.est_active), None)
         return EtablissementStructure(
-            cycles=cycle_tree,
+            cycles=cycle_nodes,
             annees_scolaires=annees,
             annee_active=annee_active,
         )
 
     def get_etablissement_config(self) -> EtablissementConfig:
-        from app.schemas.etablissement import EtablissementConfig
-
         return EtablissementConfig(
             structure=self.get_structure(),
             config_notation=self.get_config_notation(),
@@ -581,75 +623,41 @@ class EtablissementService:
         self._get_annee(annee_src_id)
         self._get_annee(annee_dst_id)
 
-        classes_src = (
-            self.db.query(Classe)
+        salles_src = (
+            self.db.query(Salle)
             .filter(
-                Classe.tenant_id == self.tenant_id,
-                Classe.annee_scolaire_id == annee_src_id,
+                Salle.tenant_id == self.tenant_id,
+                Salle.annee_scolaire_id == annee_src_id,
             )
             .all()
         )
-        classes_copiees = 0
+        salles_copiees = 0
         matieres_copiees = 0
-        niveaux_traites: set[uuid.UUID] = set()
 
-        for src in classes_src:
+        for salle_src in salles_src:
             exists = (
-                self.db.query(Classe)
+                self.db.query(Salle)
                 .filter(
-                    Classe.tenant_id == self.tenant_id,
-                    Classe.annee_scolaire_id == annee_dst_id,
-                    Classe.niveau_id == src.niveau_id,
-                    Classe.nom == src.nom,
+                    Salle.tenant_id == self.tenant_id,
+                    Salle.annee_scolaire_id == annee_dst_id,
+                    Salle.classe_id == salle_src.classe_id,
+                    Salle.nom == salle_src.nom,
                 )
                 .first()
             )
-            if exists is None:
-                self.db.add(
-                    Classe(
-                        tenant_id=self.tenant_id,
-                        niveau_id=src.niveau_id,
-                        annee_scolaire_id=annee_dst_id,
-                        nom=src.nom,
-                        capacite_max=src.capacite_max,
-                    )
+            if exists is not None:
+                continue
+            self.db.add(
+                Salle(
+                    tenant_id=self.tenant_id,
+                    classe_id=salle_src.classe_id,
+                    annee_scolaire_id=annee_dst_id,
+                    nom=salle_src.nom,
+                    nom_salle=salle_src.nom_salle,
+                    capacite=salle_src.capacite,
                 )
-                classes_copiees += 1
-
-            if src.niveau_id not in niveaux_traites:
-                niveaux_traites.add(src.niveau_id)
-
-        # Matières liées au niveau (partagées entre années) — recopiées si absentes
-        for niveau_id in niveaux_traites:
-            matieres_src = (
-                self.db.query(Matiere)
-                .filter(
-                    Matiere.tenant_id == self.tenant_id,
-                    Matiere.niveau_id == niveau_id,
-                )
-                .all()
             )
-            for mat in matieres_src:
-                exists = (
-                    self.db.query(Matiere)
-                    .filter(
-                        Matiere.tenant_id == self.tenant_id,
-                        Matiere.niveau_id == niveau_id,
-                        Matiere.nom == mat.nom,
-                    )
-                    .first()
-                )
-                if exists is None:
-                    self.db.add(
-                        Matiere(
-                            tenant_id=self.tenant_id,
-                            niveau_id=niveau_id,
-                            nom=mat.nom,
-                            coefficient=mat.coefficient,
-                            est_active=mat.est_active,
-                        )
-                    )
-                    matieres_copiees += 1
+            salles_copiees += 1
 
         self.db.commit()
         self._audit(
@@ -658,14 +666,221 @@ class EtablissementService:
             annee_dst_id,
             details={
                 "annee_src_id": str(annee_src_id),
-                "classes_copiees": classes_copiees,
+                "salles_copiees": salles_copiees,
                 "matieres_copiees": matieres_copiees,
             },
         )
         return DupliquerStructureResponse(
-            classes_copiees=classes_copiees,
+            salles_copiees=salles_copiees,
             matieres_copiees=matieres_copiees,
             message="Structure dupliquée avec succès",
+        )
+
+    # ── Wizard initialisation établissement ────────────────────────────────
+
+    def execute_wizard(
+        self,
+        data: WizardEtablissementData,
+    ) -> WizardEtablissementResponse:
+        date_debut, date_fin = self._parse_annee_scolaire(data.annee_scolaire)
+
+        periodes_creees = 0
+        classes_creees = 0
+        salles_creees = 0
+        matieres_creees = 0
+
+        cycles_by_name: dict[str, Cycle] = {}
+        classes_by_name: dict[str, Classe] = {}
+        annee_id: uuid.UUID | None = None
+
+        try:
+            self._deactivate_all_annees()
+            annee = AnneeScolaire(
+                tenant_id=self.tenant_id,
+                libelle=data.annee_scolaire.strip(),
+                date_debut=date_debut,
+                date_fin=date_fin,
+                est_active=True,
+            )
+            self.db.add(annee)
+            self.db.flush()
+            annee_id = annee.id
+
+            for periode_data in data.periodes:
+                if periode_data.date_fin < periode_data.date_debut:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Période invalide: {periode_data.periode}",
+                    )
+                self.db.add(
+                    Periode(
+                        tenant_id=self.tenant_id,
+                        annee_scolaire_id=annee.id,
+                        nom=periode_data.periode,
+                        date_debut=periode_data.date_debut,
+                        date_fin=periode_data.date_fin,
+                        ordre=periodes_creees + 1,
+                    )
+                )
+                periodes_creees += 1
+
+            for ordre, cycle_name in enumerate(data.cycles_selectionnes, start=1):
+                nom_normalise = cycle_name.strip()
+                cycle = (
+                    self.db.query(Cycle)
+                    .filter(Cycle.tenant_id == self.tenant_id, Cycle.nom == nom_normalise)
+                    .first()
+                )
+                if cycle is None:
+                    cycle = Cycle(
+                        tenant_id=self.tenant_id,
+                        nom=nom_normalise,
+                        ordre=ordre,
+                    )
+                    self.db.add(cycle)
+                    self.db.flush()
+                cycles_by_name[nom_normalise] = cycle
+
+            for classe_data in data.classes_selectionnees:
+                cycle = cycles_by_name.get(classe_data.cycle.strip())
+                if cycle is None:
+                    cycle = (
+                        self.db.query(Cycle)
+                        .filter(
+                            Cycle.tenant_id == self.tenant_id,
+                            Cycle.nom == classe_data.cycle.strip(),
+                        )
+                        .first()
+                    )
+                    if cycle is None:
+                        cycle = Cycle(
+                            tenant_id=self.tenant_id,
+                            nom=classe_data.cycle.strip(),
+                            ordre=0,
+                        )
+                        self.db.add(cycle)
+                        self.db.flush()
+                    cycles_by_name[cycle.nom] = cycle
+
+                classe_nom = classe_data.classe.strip()
+                classe = (
+                    self.db.query(Classe)
+                    .filter(
+                        Classe.tenant_id == self.tenant_id,
+                        Classe.cycle_id == cycle.id,
+                        Classe.nom == classe_nom,
+                    )
+                    .first()
+                )
+                if classe is None:
+                    classe = Classe(
+                        tenant_id=self.tenant_id,
+                        cycle_id=cycle.id,
+                        nom=classe_nom,
+                        ordre=0,
+                        valeur_systeme_ref=classe_nom,
+                    )
+                    self.db.add(classe)
+                    self.db.flush()
+                    classes_creees += 1
+                classes_by_name[classe_nom] = classe
+
+            for salle_data in data.salles:
+                classe = classes_by_name.get(salle_data.classe.strip())
+                if classe is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Classe introuvable pour salle: {salle_data.classe}",
+                    )
+                self.db.add(
+                    Salle(
+                        tenant_id=self.tenant_id,
+                        classe_id=classe.id,
+                        annee_scolaire_id=annee.id,
+                        nom=salle_data.nom_salle,
+                        nom_salle=salle_data.nom_salle,
+                        capacite=salle_data.capacite,
+                    )
+                )
+                salles_creees += 1
+
+            for matiere_data in data.matieres:
+                classe = classes_by_name.get(matiere_data.classe.strip())
+                if classe is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Classe introuvable pour matière: {matiere_data.classe}",
+                    )
+                exists = (
+                    self.db.query(Matiere)
+                    .filter(
+                        Matiere.tenant_id == self.tenant_id,
+                        Matiere.classe_id == classe.id,
+                        Matiere.nom == matiere_data.nom.strip(),
+                    )
+                    .first()
+                )
+                if exists is None:
+                    self.db.add(
+                        Matiere(
+                            tenant_id=self.tenant_id,
+                            classe_id=classe.id,
+                            nom=matiere_data.nom.strip(),
+                            coefficient=matiere_data.coefficient,
+                            est_active=True,
+                        )
+                    )
+                    matieres_creees += 1
+
+            config = (
+                self.db.query(ConfigNotation)
+                .filter(ConfigNotation.tenant_id == self.tenant_id)
+                .first()
+            )
+            if config is None:
+                config = ConfigNotation(tenant_id=self.tenant_id)
+                self.db.add(config)
+                self.db.flush()
+            config.note_max = data.config_notation.note_max
+            config.note_passage = data.config_notation.note_passage
+            config.arrondi = data.config_notation.arrondi
+
+            if config.note_passage > config.note_max:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="note_passage ne peut pas dépasser note_max",
+                )
+
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
+        if annee_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erreur lors de la création de l'année scolaire",
+            )
+
+        self._audit(
+            "establishment.wizard.complete",
+            "annees_scolaires",
+            annee_id,
+            details={
+                "periodes_creees": periodes_creees,
+                "classes_creees": classes_creees,
+                "salles_creees": salles_creees,
+                "matieres_creees": matieres_creees,
+            },
+        )
+
+        return WizardEtablissementResponse(
+            annee_scolaire_id=annee_id,
+            periodes_creees=periodes_creees,
+            classes_creees=classes_creees,
+            salles_creees=salles_creees,
+            matieres_creees=matieres_creees,
+            message="Configuration de l'établissement terminée",
         )
 
     # ── Helpers privés ──────────────────────────────────────────────────────
@@ -677,6 +892,22 @@ class EtablissementService:
             .update({AnneeScolaire.est_active: False})
         )
 
+    def _parse_annee_scolaire(self, libelle: str) -> tuple[date, date]:
+        match = re.match(r"^\s*(\d{4})\s*-\s*(\d{4})\s*$", libelle)
+        if match is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="annee_scolaire doit être au format YYYY-YYYY",
+            )
+        year_start = int(match.group(1))
+        year_end = int(match.group(2))
+        if year_end != year_start + 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="annee_scolaire doit couvrir deux années consécutives",
+            )
+        return date(year_start, 9, 1), date(year_end, 6, 30)
+
     def _get_cycle(self, cycle_id: uuid.UUID) -> Cycle:
         cycle = (
             self.db.query(Cycle)
@@ -684,18 +915,37 @@ class EtablissementService:
             .first()
         )
         if cycle is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cycle introuvable")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cycle introuvable",
+            )
         return cycle
 
-    def _get_niveau(self, niveau_id: uuid.UUID) -> Niveau:
-        niveau = (
-            self.db.query(Niveau)
-            .filter(Niveau.id == niveau_id, Niveau.tenant_id == self.tenant_id)
+    def _get_classe(self, classe_id: uuid.UUID) -> Classe:
+        classe = (
+            self.db.query(Classe)
+            .filter(Classe.id == classe_id, Classe.tenant_id == self.tenant_id)
             .first()
         )
-        if niveau is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Niveau introuvable")
-        return niveau
+        if classe is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Classe introuvable",
+            )
+        return classe
+
+    def _get_salle(self, salle_id: uuid.UUID) -> Salle:
+        salle = (
+            self.db.query(Salle)
+            .filter(Salle.id == salle_id, Salle.tenant_id == self.tenant_id)
+            .first()
+        )
+        if salle is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Salle introuvable",
+            )
+        return salle
 
     def _get_annee(self, annee_id: uuid.UUID) -> AnneeScolaire:
         annee = (
@@ -725,19 +975,6 @@ class EtablissementService:
                 detail="Période introuvable",
             )
         return periode
-
-    def _get_classe(self, classe_id: uuid.UUID) -> Classe:
-        classe = (
-            self.db.query(Classe)
-            .filter(Classe.id == classe_id, Classe.tenant_id == self.tenant_id)
-            .first()
-        )
-        if classe is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Classe introuvable",
-            )
-        return classe
 
     def _get_matiere(self, matiere_id: uuid.UUID) -> Matiere:
         matiere = (

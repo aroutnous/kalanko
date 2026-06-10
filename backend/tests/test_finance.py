@@ -68,39 +68,14 @@ async def _create_finance_context(
     finance_headers: dict[str, str] | None = None,
 ) -> dict[str, str]:
     finance_headers = finance_headers or setup_headers
-    cycle = await client.post(
-        "/cycles", json={"nom": "Fondamental", "ordre": 1}, headers=setup_headers
-    )
-    niveau = await client.post(
-        "/niveaux",
-        json={"cycle_id": cycle.json()["id"], "nom": "6ème", "ordre": 1},
-        headers=setup_headers,
-    )
-    annee = await client.post(
-        "/annees-scolaires",
-        json={
-            "libelle": "2025-2026",
-            "date_debut": "2025-09-01",
-            "date_fin": "2026-06-30",
-            "est_active": True,
-        },
-        headers=setup_headers,
-    )
-    classe = await client.post(
-        "/classes",
-        json={
-            "niveau_id": niveau.json()["id"],
-            "annee_scolaire_id": annee.json()["id"],
-            "nom": "6ème A",
-            "capacite_max": 40,
-        },
-        headers=setup_headers,
-    )
+    from tests.establishment_helpers import create_test_structure
+
+    structure = await create_test_structure(client, setup_headers)
     frais = await client.post(
         "/finance/frais",
         json={
-            "niveau_id": niveau.json()["id"],
-            "annee_scolaire_id": annee.json()["id"],
+            "classe_id": structure["niveau_id"],
+            "annee_scolaire_id": structure["annee_id"],
             "libelle": "Frais de scolarité",
             "montant": "50000",
             "est_obligatoire": True,
@@ -112,17 +87,17 @@ async def _create_finance_context(
         json={
             "nom": "Diarra",
             "prenom": "Moussa",
-            "classe_id": classe.json()["id"],
-            "annee_scolaire_id": annee.json()["id"],
+            "classe_id": structure["classe_id"],
+            "annee_scolaire_id": structure["annee_id"],
         },
         headers=setup_headers,
     )
     assert inscrit.status_code == 201
     assert frais.status_code == 201
     return {
-        "niveau_id": niveau.json()["id"],
-        "annee_id": annee.json()["id"],
-        "classe_id": classe.json()["id"],
+        "niveau_id": structure["niveau_id"],
+        "annee_id": structure["annee_id"],
+        "classe_id": structure["classe_id"],
         "frais_id": frais.json()["id"],
         "eleve_id": inscrit.json()["eleve"]["id"],
     }

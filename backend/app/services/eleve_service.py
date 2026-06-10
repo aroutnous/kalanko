@@ -16,7 +16,7 @@ from app.models.eleve import Absence, Eleve, Inscription
 from app.models.enums import StatutInscription
 from app.models.tenant import Tenant
 from app.models.enums import StatutEleve, StatutInscription, TypeAbsence
-from app.models.etablissement import AnneeScolaire, Classe, Periode
+from app.models.etablissement import AnneeScolaire, Periode, Salle
 from app.schemas.eleve import (
     AbsenceCreate,
     AbsenceResponse,
@@ -84,7 +84,7 @@ class EleveService:
 
     def inscrire_eleve(self, data: EleveInscrireCreate) -> EleveInscrireResponse:
         """Crée un élève avec matricule auto et son inscription."""
-        self._get_classe(data.classe_id)
+        self._get_salle(data.classe_id)
         self._get_annee(data.annee_scolaire_id)
         self._verifier_capacite_classe(data.classe_id)
 
@@ -150,7 +150,7 @@ class EleveService:
                 Inscription.statut == StatutInscription.INSCRIT,
             )
             if classe_id is not None:
-                self._get_classe(classe_id)
+                self._get_salle(classe_id)
                 q = q.filter(Inscription.classe_id == classe_id)
             if annee_id is not None:
                 self._get_annee(annee_id)
@@ -184,7 +184,7 @@ class EleveService:
     ) -> InscriptionResponse:
         """Affecte un élève à une classe (nouvelle inscription)."""
         eleve = self._get_eleve(eleve_id)
-        self._get_classe(classe_id)
+        self._get_salle(classe_id)
         self._get_annee(annee_id)
         self._verifier_capacite_classe(classe_id)
 
@@ -209,7 +209,7 @@ class EleveService:
     ) -> InscriptionResponse:
         """Transfère un élève vers une nouvelle classe (vérifie capacité)."""
         eleve = self._get_eleve(eleve_id)
-        nouvelle_classe = self._get_classe(data.classe_id)
+        nouvelle_classe = self._get_salle(data.classe_id)
         self._verifier_capacite_classe(data.classe_id)
 
         inscription_active = (
@@ -290,7 +290,7 @@ class EleveService:
         saisi_par: uuid.UUID,
     ) -> AbsenceResponse:
         eleve = self._get_eleve(eleve_id)
-        self._get_classe(data.classe_id)
+        self._get_salle(data.classe_id)
 
         absence = Absence(
             tenant_id=self.tenant_id,
@@ -340,7 +340,7 @@ class EleveService:
         classe_id: uuid.UUID,
         periode_id: uuid.UUID | None = None,
     ) -> ClasseAbsencesResponse:
-        self._get_classe(classe_id)
+        self._get_salle(classe_id)
         q = self.db.query(Absence).filter(
             Absence.tenant_id == self.tenant_id,
             Absence.classe_id == classe_id,
@@ -358,7 +358,7 @@ class EleveService:
         classe_id: uuid.UUID,
         periode_id: uuid.UUID | None = None,
     ) -> AbsenceStatistiquesResponse:
-        self._get_classe(classe_id)
+        self._get_salle(classe_id)
         q = self.db.query(Absence).filter(
             Absence.tenant_id == self.tenant_id,
             Absence.classe_id == classe_id,
@@ -445,14 +445,14 @@ class EleveService:
     def _get_contexte_document(self, eleve_id: uuid.UUID) -> dict[str, Any]:
         eleve = self._get_eleve(eleve_id)
         inscription = self._get_inscription_active(eleve.id)
-        classe = self._get_classe(inscription.classe_id)
+        salle = self._get_salle(inscription.classe_id)
         annee = self._get_annee(inscription.annee_scolaire_id)
         tenant = (
             self.db.query(Tenant).filter(Tenant.id == self.tenant_id).first()
         )
         return {
             "eleve": eleve,
-            "classe_nom": classe.nom,
+            "classe_nom": salle.nom,
             "annee_libelle": annee.libelle,
             "etablissement": tenant.nom if tenant else "Établissement",
             "logo_url": tenant.logo_url if tenant else None,
@@ -486,8 +486,8 @@ class EleveService:
         )
 
     def _verifier_capacite_classe(self, classe_id: uuid.UUID) -> None:
-        classe = self._get_classe(classe_id)
-        if classe.capacite_max is None:
+        salle = self._get_salle(classe_id)
+        if salle.capacite is None:
             return
         effectif = (
             self.db.query(Inscription)
@@ -498,10 +498,10 @@ class EleveService:
             )
             .count()
         )
-        if effectif >= classe.capacite_max:
+        if effectif >= salle.capacite:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Classe complète",
+                detail="Salle complète",
             )
 
     def _get_eleve(self, eleve_id: uuid.UUID) -> Eleve:
@@ -517,18 +517,18 @@ class EleveService:
             )
         return eleve
 
-    def _get_classe(self, classe_id: uuid.UUID) -> Classe:
-        classe = (
-            self.db.query(Classe)
-            .filter(Classe.id == classe_id, Classe.tenant_id == self.tenant_id)
+    def _get_salle(self, classe_id: uuid.UUID) -> Salle:
+        salle = (
+            self.db.query(Salle)
+            .filter(Salle.id == classe_id, Salle.tenant_id == self.tenant_id)
             .first()
         )
-        if classe is None:
+        if salle is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Classe introuvable",
+                detail="Salle introuvable",
             )
-        return classe
+        return salle
 
     def _get_annee(self, annee_id: uuid.UUID) -> AnneeScolaire:
         annee = (

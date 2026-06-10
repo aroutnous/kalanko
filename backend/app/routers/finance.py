@@ -143,10 +143,11 @@ def list_frais(
     request: Request,
     db: DbSession,
     user: FinanceReader,
+    classe_id: uuid.UUID | None = Query(default=None),
     niveau_id: uuid.UUID | None = Query(default=None),
     annee_id: uuid.UUID | None = Query(default=None),
 ) -> list[FraisScolaireResponse]:
-    return _service(db, user, request).list_frais(niveau_id, annee_id)
+    return _service(db, user, request).list_frais(classe_id or niveau_id, annee_id)
 
 
 @router.get("/paiements", response_model=list[PaiementResponse])

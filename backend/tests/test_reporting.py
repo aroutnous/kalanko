@@ -211,7 +211,7 @@ async def test_export_excel_resultats_classe(
     )
     matiere = await async_client.post(
         "/matieres",
-        json={"niveau_id": ctx["niveau_id"], "nom": "Maths", "coefficient": "2"},
+        json={"classe_id": ctx["niveau_id"], "nom": "Maths", "coefficient": "2"},
         headers=auth_headers,
     )
     await async_client.post(

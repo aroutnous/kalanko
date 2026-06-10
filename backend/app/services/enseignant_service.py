@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.enseignant import Enseignant, EnseignantClasse, EnseignantMatiere
 from app.models.enums import StatutEnseignant
-from app.models.etablissement import AnneeScolaire, Classe, Matiere
+from app.models.etablissement import AnneeScolaire, Matiere, Salle
 from app.schemas.enseignant import (
     EnseignantClasseCreate,
     EnseignantCreate,
@@ -105,15 +105,15 @@ class EnseignantService:
 
     def _classe_names(self, enseignant_id: uuid.UUID) -> list[str]:
         rows = (
-            self.db.query(Classe.nom)
-            .join(EnseignantClasse, EnseignantClasse.classe_id == Classe.id)
+            self.db.query(Salle.nom)
+            .join(EnseignantClasse, EnseignantClasse.classe_id == Salle.id)
             .filter(
                 EnseignantClasse.tenant_id == self.tenant_id,
                 EnseignantClasse.enseignant_id == enseignant_id,
-                Classe.tenant_id == self.tenant_id,
+                Salle.tenant_id == self.tenant_id,
             )
             .distinct()
-            .order_by(Classe.nom)
+            .order_by(Salle.nom)
             .all()
         )
         return [row[0] for row in rows]
@@ -208,21 +208,21 @@ class EnseignantService:
             )
         return matiere
 
-    def _get_classe_or_404(self, classe_id: uuid.UUID) -> Classe:
-        classe = (
-            self.db.query(Classe)
+    def _get_salle_or_404(self, classe_id: uuid.UUID) -> Salle:
+        salle = (
+            self.db.query(Salle)
             .filter(
-                Classe.id == classe_id,
-                Classe.tenant_id == self.tenant_id,
+                Salle.id == classe_id,
+                Salle.tenant_id == self.tenant_id,
             )
             .first()
         )
-        if classe is None:
+        if salle is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Classe introuvable",
+                detail="Salle introuvable",
             )
-        return classe
+        return salle
 
     def _get_annee_or_404(self, annee_id: uuid.UUID) -> AnneeScolaire:
         annee = (
@@ -248,7 +248,7 @@ class EnseignantService:
         self._get_enseignant_or_404(enseignant_id)
         self._get_matiere_or_404(data.matiere_id)
         if data.classe_id is not None:
-            self._get_classe_or_404(data.classe_id)
+            self._get_salle_or_404(data.classe_id)
 
         existing = (
             self.db.query(EnseignantMatiere)
@@ -297,7 +297,7 @@ class EnseignantService:
         data: EnseignantClasseCreate,
     ) -> EnseignantClasse:
         self._get_enseignant_or_404(enseignant_id)
-        self._get_classe_or_404(data.classe_id)
+        self._get_salle_or_404(data.classe_id)
         self._get_annee_or_404(data.annee_scolaire_id)
 
         existing = (
@@ -355,22 +355,22 @@ class EnseignantService:
             .all()
         )
 
-    def get_classes(self, enseignant_id: uuid.UUID) -> list[Classe]:
+    def get_classes(self, enseignant_id: uuid.UUID) -> list[Salle]:
         self._get_enseignant_or_404(enseignant_id)
         return (
-            self.db.query(Classe)
-            .join(EnseignantClasse, EnseignantClasse.classe_id == Classe.id)
+            self.db.query(Salle)
+            .join(EnseignantClasse, EnseignantClasse.classe_id == Salle.id)
             .filter(
                 EnseignantClasse.tenant_id == self.tenant_id,
                 EnseignantClasse.enseignant_id == enseignant_id,
-                Classe.tenant_id == self.tenant_id,
+                Salle.tenant_id == self.tenant_id,
             )
-            .order_by(Classe.nom)
+            .order_by(Salle.nom)
             .all()
         )
 
     def get_par_classe(self, classe_id: uuid.UUID) -> list[EnseignantResponse]:
-        self._get_classe_or_404(classe_id)
+        self._get_salle_or_404(classe_id)
         enseignants = (
             self.db.query(Enseignant)
             .join(EnseignantClasse, EnseignantClasse.enseignant_id == Enseignant.id)

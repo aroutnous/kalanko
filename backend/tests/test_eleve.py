@@ -16,6 +16,7 @@ from app.models.enums import (
 )
 from app.models.tenant import Tenant
 from tests.conftest import TEST_PASSWORD
+from tests.establishment_helpers import create_test_structure
 from tests.permission_helpers import grant_role_permissions
 
 
@@ -26,46 +27,13 @@ async def _create_structure(
     classe_nom: str = "6ème A",
     capacite_max: int = 40,
 ) -> dict[str, str]:
-    """Crée cycle → niveau → année → classe et retourne les IDs."""
-    cycle = await client.post(
-        "/cycles",
-        json={"nom": "Fondamental", "ordre": 1},
-        headers=headers,
+    return await create_test_structure(
+        client,
+        headers,
+        salle_nom=classe_nom,
+        capacite=capacite_max,
+        matiere_nom=None,
     )
-    assert cycle.status_code == 201
-    niveau = await client.post(
-        "/niveaux",
-        json={"cycle_id": cycle.json()["id"], "nom": "6ème", "ordre": 1},
-        headers=headers,
-    )
-    assert niveau.status_code == 201
-    annee = await client.post(
-        "/annees-scolaires",
-        json={
-            "libelle": "2025-2026",
-            "date_debut": "2025-09-01",
-            "date_fin": "2026-06-30",
-            "est_active": True,
-        },
-        headers=headers,
-    )
-    assert annee.status_code == 201
-    classe = await client.post(
-        "/classes",
-        json={
-            "niveau_id": niveau.json()["id"],
-            "annee_scolaire_id": annee.json()["id"],
-            "nom": classe_nom,
-            "capacite_max": capacite_max,
-        },
-        headers=headers,
-    )
-    assert classe.status_code == 201
-    return {
-        "classe_id": classe.json()["id"],
-        "annee_id": annee.json()["id"],
-        "niveau_id": niveau.json()["id"],
-    }
 
 
 def _eleve_payload(classe_id: str, annee_id: str, **overrides) -> dict:
@@ -137,7 +105,7 @@ async def test_inscription_classe_pleine(
         headers=auth_headers,
     )
     assert second.status_code == 409
-    assert second.json()["detail"] == "Classe complète"
+    assert second.json()["detail"] == "Salle complète"
 
 
 @pytest.mark.asyncio
@@ -252,12 +220,12 @@ async def test_transfert_eleve(
     eleve_id = inscrit.json()["eleve"]["id"]
 
     classe_b = await async_client.post(
-        "/classes",
+        "/salles",
         json={
-            "niveau_id": structure["niveau_id"],
+            "classe_id": structure["niveau_id"],
             "annee_scolaire_id": structure["annee_id"],
-            "nom": "6ème B",
-            "capacite_max": 40,
+            "nom_salle": "6ème B",
+            "capacite": 40,
         },
         headers=auth_headers,
     )

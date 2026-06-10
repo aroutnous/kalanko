@@ -10,6 +10,7 @@ from app.models.auth import Utilisateur
 from app.models.enums import RoleUtilisateur, StatutTenant, StatutUtilisateur
 from app.models.tenant import Tenant
 from tests.conftest import TEST_PASSWORD
+from tests.establishment_helpers import create_test_structure
 from tests.permission_helpers import grant_role_permissions
 
 
@@ -17,48 +18,7 @@ async def _create_structure(
     client: AsyncClient,
     headers: dict[str, str],
 ) -> dict[str, str]:
-    cycle = await client.post(
-        "/cycles", json={"nom": "Fondamental", "ordre": 1}, headers=headers
-    )
-    niveau = await client.post(
-        "/niveaux",
-        json={"cycle_id": cycle.json()["id"], "nom": "6ème", "ordre": 1},
-        headers=headers,
-    )
-    annee = await client.post(
-        "/annees-scolaires",
-        json={
-            "libelle": "2025-2026",
-            "date_debut": "2025-09-01",
-            "date_fin": "2026-06-30",
-            "est_active": True,
-        },
-        headers=headers,
-    )
-    classe = await client.post(
-        "/classes",
-        json={
-            "niveau_id": niveau.json()["id"],
-            "annee_scolaire_id": annee.json()["id"],
-            "nom": "6ème A",
-            "capacite_max": 40,
-        },
-        headers=headers,
-    )
-    matiere = await client.post(
-        "/matieres",
-        json={
-            "niveau_id": niveau.json()["id"],
-            "nom": "Mathématiques",
-            "coefficient": "2",
-        },
-        headers=headers,
-    )
-    return {
-        "classe_id": classe.json()["id"],
-        "matiere_id": matiere.json()["id"],
-        "annee_id": annee.json()["id"],
-    }
+    return await create_test_structure(client, headers)
 
 
 @pytest.mark.asyncio

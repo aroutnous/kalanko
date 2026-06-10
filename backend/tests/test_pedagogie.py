@@ -14,6 +14,7 @@ from app.models.pedagogie import BulletinLigne
 from app.models.tenant import Tenant
 from app.services.calcul_service import CalculService
 from tests.conftest import TEST_PASSWORD
+from tests.establishment_helpers import create_test_structure
 from tests.permission_helpers import grant_role_permissions
 
 
@@ -24,14 +25,7 @@ async def _create_pedagogie_context(
     nb_eleves: int = 2,
 ) -> dict[str, object]:
     """Structure complète : cycle → classe → période → matières → élèves."""
-    cycle = await client.post(
-        "/cycles", json={"nom": "Fondamental", "ordre": 1}, headers=headers
-    )
-    niveau = await client.post(
-        "/niveaux",
-        json={"cycle_id": cycle.json()["id"], "nom": "6ème", "ordre": 1},
-        headers=headers,
-    )
+    structure = await create_test_structure(client, headers, matiere_nom=None)
     annee = await client.post(
         "/annees-scolaires",
         json={
@@ -45,7 +39,7 @@ async def _create_pedagogie_context(
     periode = await client.post(
         "/periodes",
         json={
-            "annee_scolaire_id": annee.json()["id"],
+            "annee_scolaire_id": structure["annee_id"],
             "nom": "1er Trimestre",
             "date_debut": "2025-09-01",
             "date_fin": "2025-12-20",
@@ -53,24 +47,18 @@ async def _create_pedagogie_context(
         },
         headers=headers,
     )
-    classe = await client.post(
-        "/classes",
-        json={
-            "niveau_id": niveau.json()["id"],
-            "annee_scolaire_id": annee.json()["id"],
-            "nom": "6ème A",
-            "capacite_max": 40,
-        },
-        headers=headers,
-    )
     maths = await client.post(
         "/matieres",
-        json={"niveau_id": niveau.json()["id"], "nom": "Mathématiques", "coefficient": "3"},
+        json={
+            "classe_id": structure["niveau_id"],
+            "nom": "Mathématiques",
+            "coefficient": "3",
+        },
         headers=headers,
     )
     francais = await client.post(
         "/matieres",
-        json={"niveau_id": niveau.json()["id"], "nom": "Français", "coefficient": "2"},
+        json={"classe_id": structure["niveau_id"], "nom": "Français", "coefficient": "2"},
         headers=headers,
     )
 
@@ -81,8 +69,8 @@ async def _create_pedagogie_context(
             json={
                 "nom": f"Élève{i}",
                 "prenom": "Test",
-                "classe_id": classe.json()["id"],
-                "annee_scolaire_id": annee.json()["id"],
+                "classe_id": structure["classe_id"],
+                "annee_scolaire_id": structure["annee_id"],
             },
             headers=headers,
         )
@@ -90,7 +78,7 @@ async def _create_pedagogie_context(
         eleve_ids.append(inscrit.json()["eleve"]["id"])
 
     return {
-        "classe_id": classe.json()["id"],
+        "classe_id": structure["classe_id"],
         "periode_id": periode.json()["id"],
         "matiere_maths_id": maths.json()["id"],
         "matiere_francais_id": francais.json()["id"],

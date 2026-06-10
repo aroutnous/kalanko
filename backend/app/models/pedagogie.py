@@ -36,7 +36,7 @@ class Note(TenantScopedModel):
     )
     classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("classes.id", ondelete="CASCADE"),
+        ForeignKey("salles.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -60,7 +60,7 @@ class Bulletin(TenantScopedModel):
     )
     classe_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("classes.id", ondelete="CASCADE"),
+        ForeignKey("salles.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

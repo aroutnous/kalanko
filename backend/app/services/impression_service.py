@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.eleve import Eleve, Inscription
 from app.models.enums import StatutInscription, StatutPaiement
-from app.models.etablissement import Classe
+from app.models.etablissement import Salle
 from app.models.finance import Paiement
 from app.models.pedagogie import Bulletin
 
@@ -87,15 +87,15 @@ class ImpressionService:
         return self._build_pdf("Reçu de paiement", lines)
 
     def imprimer_liste_classe(self, classe_id: uuid.UUID) -> bytes:
-        classe = (
-            self.db.query(Classe)
-            .filter(Classe.id == classe_id, Classe.tenant_id == self.tenant_id)
+        salle = (
+            self.db.query(Salle)
+            .filter(Salle.id == classe_id, Salle.tenant_id == self.tenant_id)
             .first()
         )
-        if classe is None:
+        if salle is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Classe introuvable",
+                detail="Salle introuvable",
             )
 
         inscriptions = (
@@ -110,7 +110,7 @@ class ImpressionService:
             .all()
         )
 
-        lines = [f"Classe : {classe.nom}", f"Effectif : {len(inscriptions)}", ""]
+        lines = [f"Classe : {salle.nom}", f"Effectif : {len(inscriptions)}", ""]
         for i, ins in enumerate(inscriptions, start=1):
             eleve = (
                 self.db.query(Eleve)

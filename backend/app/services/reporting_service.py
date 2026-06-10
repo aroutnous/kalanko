@@ -19,8 +19,8 @@ from app.models.etablissement import (
     AnneeScolaire,
     Classe,
     Cycle,
-    Niveau,
     Periode,
+    Salle,
 )
 from app.models.finance import CaisseJournaliere, Depense, FraisScolaire, Paiement
 from app.models.pedagogie import Bulletin
@@ -101,30 +101,30 @@ class ReportingService:
         par_cycle: dict[str, dict[str, Any]] = {}
 
         for ins in inscriptions:
+            salle = (
+                self.db.query(Salle)
+                .filter(Salle.id == ins.classe_id, Salle.tenant_id == self.tenant_id)
+                .first()
+            )
+            if salle is None:
+                continue
+            sid = str(salle.id)
+            par_classe.setdefault(sid, {"salle_id": sid, "nom": salle.nom, "effectif": 0})
+            par_classe[sid]["effectif"] += 1
+
             classe = (
                 self.db.query(Classe)
-                .filter(Classe.id == ins.classe_id, Classe.tenant_id == self.tenant_id)
+                .filter(Classe.id == salle.classe_id, Classe.tenant_id == self.tenant_id)
                 .first()
             )
-            if classe is None:
-                continue
-            cid = str(classe.id)
-            par_classe.setdefault(cid, {"classe_id": cid, "nom": classe.nom, "effectif": 0})
-            par_classe[cid]["effectif"] += 1
-
-            niveau = (
-                self.db.query(Niveau)
-                .filter(Niveau.id == classe.niveau_id, Niveau.tenant_id == self.tenant_id)
-                .first()
-            )
-            if niveau:
-                nid = str(niveau.id)
-                par_niveau.setdefault(nid, {"niveau_id": nid, "nom": niveau.nom, "effectif": 0})
-                par_niveau[nid]["effectif"] += 1
+            if classe:
+                cid = str(classe.id)
+                par_niveau.setdefault(cid, {"classe_id": cid, "nom": classe.nom, "effectif": 0})
+                par_niveau[cid]["effectif"] += 1
 
                 cycle = (
                     self.db.query(Cycle)
-                    .filter(Cycle.id == niveau.cycle_id, Cycle.tenant_id == self.tenant_id)
+                    .filter(Cycle.id == classe.cycle_id, Cycle.tenant_id == self.tenant_id)
                     .first()
                 )
                 if cycle:
@@ -155,10 +155,10 @@ class ReportingService:
 
         for periode in periodes:
             classes = (
-                self.db.query(Classe)
+                self.db.query(Salle)
                 .filter(
-                    Classe.tenant_id == self.tenant_id,
-                    Classe.annee_scolaire_id == annee_id,
+                    Salle.tenant_id == self.tenant_id,
+                    Salle.annee_scolaire_id == annee_id,
                 )
                 .all()
             )
@@ -285,7 +285,7 @@ class ReportingService:
             self.db.query(Eleve).filter(Eleve.tenant_id == self.tenant_id).count()
         )
         nb_classes = (
-            self.db.query(Classe).filter(Classe.tenant_id == self.tenant_id).count()
+            self.db.query(Salle).filter(Salle.tenant_id == self.tenant_id).count()
         )
 
         annee = (
