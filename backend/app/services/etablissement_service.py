@@ -14,12 +14,12 @@ from app.models.finance import FraisScolaire
 from app.models.etablissement import (
     AnneeScolaire,
     Classe,
-    ConfigNotation,
     Cycle,
     Matiere,
     Periode,
     Salle,
 )
+from app.models.valeur_systeme import ValeurSysteme
 from app.models.pedagogie import Note
 from app.schemas.etablissement import (
     AnneeScolaireCreate,
@@ -30,14 +30,11 @@ from app.schemas.etablissement import (
     ClasseResponse,
     ClasseStructureResponse,
     ClasseUpdate,
-    ConfigNotationResponse,
-    ConfigNotationUpdate,
     CycleCreate,
     CycleResponse,
     CycleStructureResponse,
     CycleUpdate,
     DupliquerStructureResponse,
-    EtablissementConfig,
     EtablissementStructure,
     MatiereCreate,
     MatiereResponse,
@@ -100,7 +97,10 @@ class EtablissementService:
     # ── Cycles ──────────────────────────────────────────────────────────────
 
     def create_cycle(self, data: CycleCreate) -> CycleResponse:
-        cycle = Cycle(tenant_id=self.tenant_id, **data.model_dump())
+        payload = data.model_dump()
+        cycle = Cycle(tenant_id=self.tenant_id, **payload)
+        if not payload.get("valeur_systeme_ref"):
+            self._apply_notation_from_valeurs_systeme(cycle)
         self.db.add(cycle)
         self.db.commit()
         self.db.refresh(cycle)
@@ -123,6 +123,19 @@ class EtablissementService:
         cycle = self._get_cycle(cycle_id)
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(cycle, field, value)
+        if cycle.type_evaluation == "qualitative":
+            cycle.note_max = None
+            cycle.note_passage = None
+            cycle.arrondi = None
+        elif (
+            cycle.note_passage is not None
+            and cycle.note_max is not None
+            and cycle.note_passage > cycle.note_max
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="note_passage ne peut pas dépasser note_max",
+            )
         self.db.commit()
         self.db.refresh(cycle)
         self._audit("establishment.cycle.update", "cycles", cycle.id)
@@ -537,53 +550,6 @@ class EtablissementService:
         self.db.commit()
         self._audit("establishment.matiere.delete", "matieres", matiere_id)
 
-    # ── Configuration notation ──────────────────────────────────────────────
-
-    def get_config_notation(self) -> ConfigNotationResponse:
-        config = (
-            self.db.query(ConfigNotation)
-            .filter(ConfigNotation.tenant_id == self.tenant_id)
-            .first()
-        )
-        if config is None:
-            config = ConfigNotation(
-                tenant_id=self.tenant_id,
-                note_max=DEFAULT_NOTE_MAX,
-                note_passage=DEFAULT_NOTE_PASSAGE,
-                arrondi=DEFAULT_ARRONDI,
-            )
-            self.db.add(config)
-            self.db.commit()
-            self.db.refresh(config)
-        return ConfigNotationResponse.model_validate(config)
-
-    def update_config_notation(self, data: ConfigNotationUpdate) -> ConfigNotationResponse:
-        config = (
-            self.db.query(ConfigNotation)
-            .filter(ConfigNotation.tenant_id == self.tenant_id)
-            .first()
-        )
-        if config is None:
-            config = ConfigNotation(
-                tenant_id=self.tenant_id,
-                note_max=DEFAULT_NOTE_MAX,
-                note_passage=DEFAULT_NOTE_PASSAGE,
-                arrondi=DEFAULT_ARRONDI,
-            )
-            self.db.add(config)
-            self.db.flush()
-        for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(config, field, value)
-        if config.note_passage > config.note_max:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="note_passage ne peut pas dépasser note_max",
-            )
-        self.db.commit()
-        self.db.refresh(config)
-        self._audit("establishment.config_notation.update", "config_notation", config.id)
-        return ConfigNotationResponse.model_validate(config)
-
     # ── Structure globale ───────────────────────────────────────────────────
 
     def get_structure(self) -> EtablissementStructure:
@@ -654,12 +620,6 @@ class EtablissementService:
             cycles=cycle_nodes,
             annees_scolaires=annees,
             annee_active=annee_active,
-        )
-
-    def get_etablissement_config(self) -> EtablissementConfig:
-        return EtablissementConfig(
-            structure=self.get_structure(),
-            config_notation=self.get_config_notation(),
         )
 
     def dupliquer_structure(
@@ -789,8 +749,11 @@ class EtablissementService:
                         nom=nom_normalise,
                         ordre=ordre,
                     )
+                    self._apply_notation_from_valeurs_systeme(cycle)
                     self.db.add(cycle)
                     self.db.flush()
+                else:
+                    self._apply_notation_from_valeurs_systeme(cycle)
                 cycles_by_name[nom_normalise] = cycle
 
             for classe_data in data.classes_selectionnees:
@@ -810,8 +773,11 @@ class EtablissementService:
                             nom=classe_data.cycle.strip(),
                             ordre=0,
                         )
+                        self._apply_notation_from_valeurs_systeme(cycle)
                         self.db.add(cycle)
                         self.db.flush()
+                    else:
+                        self._apply_notation_from_valeurs_systeme(cycle)
                     cycles_by_name[cycle.nom] = cycle
 
                 classe_nom = classe_data.classe.strip()
@@ -884,25 +850,6 @@ class EtablissementService:
                     )
                     matieres_creees += 1
 
-            config = (
-                self.db.query(ConfigNotation)
-                .filter(ConfigNotation.tenant_id == self.tenant_id)
-                .first()
-            )
-            if config is None:
-                config = ConfigNotation(tenant_id=self.tenant_id)
-                self.db.add(config)
-                self.db.flush()
-            config.note_max = data.config_notation.note_max
-            config.note_passage = data.config_notation.note_passage
-            config.arrondi = data.config_notation.arrondi
-
-            if config.note_passage > config.note_max:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="note_passage ne peut pas dépasser note_max",
-                )
-
             self.db.commit()
         except Exception:
             self.db.rollback()
@@ -959,6 +906,47 @@ class EtablissementService:
                 detail="annee_scolaire doit couvrir deux années consécutives",
             )
         return date(year_start, 9, 1), date(year_end, 6, 30)
+
+    def _apply_notation_from_valeurs_systeme(self, cycle: Cycle) -> None:
+        """Applique type_evaluation et barème depuis valeurs_systeme (seed migration 010)."""
+        row = (
+            self.db.query(ValeurSysteme)
+            .filter(
+                ValeurSysteme.categorie == "cycle",
+                ValeurSysteme.valeur == cycle.nom,
+                ValeurSysteme.actif.is_(True),
+            )
+            .first()
+        )
+        cycle.valeur_systeme_ref = cycle.nom
+        if row is None or not row.metadata_json:
+            cycle.type_evaluation = "chiffree"
+            cycle.note_max = DEFAULT_NOTE_MAX
+            cycle.note_passage = DEFAULT_NOTE_PASSAGE
+            cycle.arrondi = DEFAULT_ARRONDI
+            return
+
+        meta = row.metadata_json
+        type_eval = meta.get("type_evaluation", "chiffree")
+        cycle.type_evaluation = type_eval
+        if type_eval == "qualitative":
+            cycle.note_max = None
+            cycle.note_passage = None
+            cycle.arrondi = None
+            return
+
+        note_max = meta.get("note_max")
+        note_passage = meta.get("note_passage")
+        arrondi = meta.get("arrondi")
+        cycle.note_max = (
+            Decimal(str(note_max)) if note_max is not None else DEFAULT_NOTE_MAX
+        )
+        cycle.note_passage = (
+            Decimal(str(note_passage))
+            if note_passage is not None
+            else DEFAULT_NOTE_PASSAGE
+        )
+        cycle.arrondi = int(arrondi) if arrondi is not None else DEFAULT_ARRONDI
 
     def _get_cycle(self, cycle_id: uuid.UUID) -> Cycle:
         cycle = (

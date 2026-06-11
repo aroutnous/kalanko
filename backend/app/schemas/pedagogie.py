@@ -3,10 +3,14 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.enums import StatutBulletin
+
+StatutCompetence = Literal["acquis", "en_cours_acquisition", "non_acquis"]
+TypeBulletin = Literal["chiffre", "competences"]
 
 
 class NoteCreate(BaseModel):
@@ -14,13 +18,37 @@ class NoteCreate(BaseModel):
     matiere_id: uuid.UUID
     periode_id: uuid.UUID
     classe_id: uuid.UUID
-    valeur: Decimal = Field(..., ge=0, le=20)
+    valeur: Decimal | None = Field(default=None, ge=0, le=20)
+    valeur_qualitative: StatutCompetence | None = None
     appreciation: str | None = None
+
+    @model_validator(mode="after")
+    def validate_valeur_xor(self) -> "NoteCreate":
+        has_valeur = self.valeur is not None
+        has_qualitative = self.valeur_qualitative is not None
+        if has_valeur == has_qualitative:
+            raise ValueError(
+                "Fournir soit valeur (chiffrée) soit valeur_qualitative, pas les deux"
+            )
+        return self
 
 
 class NoteUpdate(BaseModel):
     valeur: Decimal | None = Field(default=None, ge=0, le=20)
+    valeur_qualitative: StatutCompetence | None = None
     appreciation: str | None = None
+
+    @model_validator(mode="after")
+    def validate_valeur_xor(self) -> "NoteUpdate":
+        if self.valeur is None and self.valeur_qualitative is None:
+            return self
+        has_valeur = self.valeur is not None
+        has_qualitative = self.valeur_qualitative is not None
+        if has_valeur and has_qualitative:
+            raise ValueError(
+                "Fournir soit valeur (chiffrée) soit valeur_qualitative, pas les deux"
+            )
+        return self
 
 
 class NoteResponse(BaseModel):
@@ -30,7 +58,8 @@ class NoteResponse(BaseModel):
     matiere_id: uuid.UUID
     periode_id: uuid.UUID
     classe_id: uuid.UUID
-    valeur: Decimal
+    valeur: Decimal | None
+    valeur_qualitative: str | None
     appreciation: str | None
     saisi_par: uuid.UUID | None
     created_at: datetime
@@ -54,9 +83,10 @@ class BulletinLigneResponse(BaseModel):
     id: uuid.UUID
     bulletin_id: uuid.UUID
     matiere_id: uuid.UUID
-    note: Decimal
+    note: Decimal | None
     moyenne_classe: Decimal | None
-    coefficient: Decimal
+    coefficient: Decimal | None
+    statut_competence: str | None
     appreciation: str | None
 
     model_config = {"from_attributes": True}
@@ -73,6 +103,7 @@ class BulletinResponse(BaseModel):
     effectif_classe: int | None
     mention: str | None
     appreciation_generale: str | None
+    type_bulletin: str
     statut: StatutBulletin
     valide_par: uuid.UUID | None
     date_validation: date | None
@@ -99,6 +130,7 @@ class ResultatsClasseResponse(BaseModel):
     classe_id: uuid.UUID
     periode_id: uuid.UUID
     effectif: int
+    type_evaluation: str
     moyennes_par_matiere: list[MoyenneMatiere]
     classement: list[ClassementEleve]
     taux_reussite: Decimal

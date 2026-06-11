@@ -1,7 +1,7 @@
 """Logique métier M4 — Gestion pédagogique."""
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.eleve import Eleve, Inscription
 from app.models.enums import StatutBulletin, StatutInscription
-from app.models.etablissement import Matiere, Periode, Salle
+from app.models.etablissement import Classe, Cycle, Matiere, Periode, Salle
 from app.models.pedagogie import Bulletin, BulletinLigne, Note
 from app.schemas.pedagogie import (
     BulletinGenererRequest,
@@ -18,6 +18,7 @@ from app.schemas.pedagogie import (
     ClassementEleve,
     MoyenneMatiere,
     NoteBatchCreate,
+    NoteCreate,
     NoteResponse,
     ResultatsClasseResponse,
 )
@@ -67,6 +68,12 @@ class PedagogieService:
         saisi_par: uuid.UUID,
     ) -> list[NoteResponse]:
         """Saisie groupée avec upsert eleve+matiere+periode."""
+        if not data.notes:
+            return []
+
+        cycle = self._get_cycle_for_salle(self._get_salle(data.notes[0].classe_id))
+        is_qualitative = cycle.type_evaluation == "qualitative"
+
         result: list[Note] = []
 
         for item in data.notes:
@@ -74,6 +81,7 @@ class PedagogieService:
             self._get_matiere(item.matiere_id)
             self._get_periode(item.periode_id)
             self._get_salle(item.classe_id)
+            self._validate_note_item(item, is_qualitative, cycle)
 
             existing = (
                 self.db.query(Note)
@@ -86,12 +94,23 @@ class PedagogieService:
                 .first()
             )
 
-            appreciation = item.appreciation
-            if appreciation is None:
-                appreciation = self.calcul.get_mention(float(item.valeur))
+            if is_qualitative:
+                appreciation = item.appreciation
+                valeur = None
+                valeur_qualitative = item.valeur_qualitative
+            else:
+                valeur = item.valeur
+                valeur_qualitative = None
+                appreciation = item.appreciation
+                if appreciation is None and valeur is not None:
+                    appreciation = self.calcul.get_mention(
+                        float(valeur),
+                        float(cycle.note_passage or 10),
+                    )
 
             if existing:
-                existing.valeur = item.valeur
+                existing.valeur = valeur
+                existing.valeur_qualitative = valeur_qualitative
                 existing.classe_id = item.classe_id
                 existing.appreciation = appreciation
                 existing.saisi_par = saisi_par
@@ -103,7 +122,8 @@ class PedagogieService:
                     matiere_id=item.matiere_id,
                     periode_id=item.periode_id,
                     classe_id=item.classe_id,
-                    valeur=item.valeur,
+                    valeur=valeur,
+                    valeur_qualitative=valeur_qualitative,
                     appreciation=appreciation,
                     saisi_par=saisi_par,
                 )
@@ -120,7 +140,18 @@ class PedagogieService:
         data: BulletinGenererRequest,
     ) -> list[BulletinResponse]:
         """Génère ou régénère les bulletins d'une classe pour une période."""
-        self._get_salle(data.classe_id)
+        salle = self._get_salle(data.classe_id)
+        cycle = self._get_cycle_for_salle(salle)
+
+        if cycle.type_evaluation == "qualitative":
+            return self._generer_bulletins_competences(data, cycle)
+        return self._generer_bulletins_chiffres(data, cycle)
+
+    def _generer_bulletins_chiffres(
+        self,
+        data: BulletinGenererRequest,
+        cycle: Cycle,
+    ) -> list[BulletinResponse]:
         self._get_periode(data.periode_id)
 
         eleve_ids = self._get_eleves_classe(data.classe_id)
@@ -136,6 +167,7 @@ class PedagogieService:
                 Note.tenant_id == self.tenant_id,
                 Note.classe_id == data.classe_id,
                 Note.periode_id == data.periode_id,
+                Note.valeur.isnot(None),
             )
             .all()
         )
@@ -154,37 +186,21 @@ class PedagogieService:
 
         bulletins_generes: list[Bulletin] = []
         moyennes_eleves: dict[uuid.UUID, float] = {}
+        note_passage = float(cycle.note_passage or 10)
 
         for eleve_id in eleve_ids:
             notes_eleve = notes_par_eleve.get(eleve_id, [])
-            lignes_data: list[dict[str, Any]] = []
-            for note in notes_eleve:
-                coef = coefficients.get(note.matiere_id, Decimal("1"))
-                lignes_data.append(
-                    {
-                        "matiere_id": note.matiere_id,
-                        "note": note.valeur,
-                        "moyenne_classe": Decimal(
-                            str(moyennes_classe_matiere.get(note.matiere_id, 0.0))
-                        ),
-                        "coefficient": coef,
-                        "appreciation": note.appreciation,
-                    }
-                )
-
             lignes_temp = [
                 BulletinLigne(
                     bulletin_id=uuid.uuid4(),
-                    matiere_id=ld["matiere_id"],
-                    note=ld["note"],
-                    moyenne_classe=ld["moyenne_classe"],
-                    coefficient=ld["coefficient"],
-                    appreciation=ld["appreciation"],
+                    matiere_id=note.matiere_id,
+                    note=note.valeur,
+                    coefficient=coefficients.get(note.matiere_id, Decimal("1")),
                 )
-                for ld in lignes_data
+                for note in notes_eleve
+                if note.valeur is not None
             ]
-            moyenne_generale = self.calcul.calculer_moyenne_generale(lignes_temp)
-            moyennes_eleves[eleve_id] = moyenne_generale
+            moyennes_eleves[eleve_id] = self.calcul.calculer_moyenne_generale(lignes_temp)
 
         effectif = len(eleve_ids)
 
@@ -206,7 +222,7 @@ class PedagogieService:
 
             moyenne_generale = moyennes_eleves[eleve_id]
             rang = self.calcul.calculer_rang(eleve_id, moyennes_eleves)
-            mention = self.calcul.get_mention(moyenne_generale)
+            mention = self.calcul.get_mention(moyenne_generale, note_passage)
 
             if existing:
                 if existing.statut != StatutBulletin.BROUILLON:
@@ -218,6 +234,7 @@ class PedagogieService:
                 existing.effectif_classe = effectif
                 existing.mention = mention
                 existing.appreciation_generale = mention
+                existing.type_bulletin = "chiffre"
                 self.db.query(BulletinLigne).filter(
                     BulletinLigne.bulletin_id == existing.id
                 ).delete()
@@ -233,6 +250,7 @@ class PedagogieService:
                     effectif_classe=effectif,
                     mention=mention,
                     appreciation_generale=mention,
+                    type_bulletin="chiffre",
                     statut=StatutBulletin.BROUILLON,
                 )
                 self.db.add(bulletin)
@@ -240,6 +258,8 @@ class PedagogieService:
 
             notes_eleve = notes_par_eleve.get(eleve_id, [])
             for note in notes_eleve:
+                if note.valeur is None:
+                    continue
                 coef = coefficients.get(note.matiere_id, Decimal("1"))
                 ligne = BulletinLigne(
                     bulletin_id=bulletin.id,
@@ -249,6 +269,102 @@ class PedagogieService:
                         str(moyennes_classe_matiere.get(note.matiere_id, 0.0))
                     ),
                     coefficient=coef,
+                    appreciation=note.appreciation,
+                )
+                self.db.add(ligne)
+
+            bulletins_generes.append(bulletin)
+
+        self.db.commit()
+        return [self._bulletin_to_response(b) for b in bulletins_generes]
+
+    def _generer_bulletins_competences(
+        self,
+        data: BulletinGenererRequest,
+        _cycle: Cycle,
+    ) -> list[BulletinResponse]:
+        self._get_periode(data.periode_id)
+
+        eleve_ids = self._get_eleves_classe(data.classe_id)
+        if not eleve_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Aucun élève inscrit dans cette classe",
+            )
+
+        notes = (
+            self.db.query(Note)
+            .filter(
+                Note.tenant_id == self.tenant_id,
+                Note.classe_id == data.classe_id,
+                Note.periode_id == data.periode_id,
+                Note.valeur_qualitative.isnot(None),
+            )
+            .all()
+        )
+        notes_par_eleve: dict[uuid.UUID, list[Note]] = {}
+        for note in notes:
+            notes_par_eleve.setdefault(note.eleve_id, []).append(note)
+
+        effectif = len(eleve_ids)
+        bulletins_generes: list[Bulletin] = []
+
+        for eleve_id in eleve_ids:
+            existing = (
+                self.db.query(Bulletin)
+                .filter(
+                    Bulletin.tenant_id == self.tenant_id,
+                    Bulletin.eleve_id == eleve_id,
+                    Bulletin.classe_id == data.classe_id,
+                    Bulletin.periode_id == data.periode_id,
+                )
+                .first()
+            )
+
+            if existing and existing.statut == StatutBulletin.PUBLIE:
+                bulletins_generes.append(existing)
+                continue
+
+            if existing:
+                if existing.statut != StatutBulletin.BROUILLON:
+                    existing.statut = StatutBulletin.BROUILLON
+                    existing.valide_par = None
+                    existing.date_validation = None
+                existing.moyenne_generale = None
+                existing.rang = None
+                existing.effectif_classe = effectif
+                existing.mention = None
+                existing.appreciation_generale = None
+                existing.type_bulletin = "competences"
+                self.db.query(BulletinLigne).filter(
+                    BulletinLigne.bulletin_id == existing.id
+                ).delete()
+                bulletin = existing
+            else:
+                bulletin = Bulletin(
+                    tenant_id=self.tenant_id,
+                    eleve_id=eleve_id,
+                    classe_id=data.classe_id,
+                    periode_id=data.periode_id,
+                    moyenne_generale=None,
+                    rang=None,
+                    effectif_classe=effectif,
+                    mention=None,
+                    appreciation_generale=None,
+                    type_bulletin="competences",
+                    statut=StatutBulletin.BROUILLON,
+                )
+                self.db.add(bulletin)
+                self.db.flush()
+
+            for note in notes_par_eleve.get(eleve_id, []):
+                ligne = BulletinLigne(
+                    bulletin_id=bulletin.id,
+                    matiere_id=note.matiere_id,
+                    note=None,
+                    moyenne_classe=None,
+                    coefficient=None,
+                    statut_competence=note.valeur_qualitative,
                     appreciation=note.appreciation,
                 )
                 self.db.add(ligne)
@@ -315,8 +431,12 @@ class PedagogieService:
         periode_id: uuid.UUID,
     ) -> ResultatsClasseResponse:
         """Statistiques agrégées : moyennes par matière, classement, taux de réussite."""
-        self._get_salle(classe_id)
+        salle = self._get_salle(classe_id)
+        cycle = self._get_cycle_for_salle(salle)
         self._get_periode(periode_id)
+
+        if cycle.type_evaluation == "qualitative":
+            return self._get_resultats_competences(classe_id, periode_id, cycle)
 
         notes = (
             self.db.query(Note)
@@ -324,6 +444,7 @@ class PedagogieService:
                 Note.tenant_id == self.tenant_id,
                 Note.classe_id == classe_id,
                 Note.periode_id == periode_id,
+                Note.valeur.isnot(None),
             )
             .all()
         )
@@ -333,9 +454,14 @@ class PedagogieService:
             MoyenneMatiere(
                 matiere_id=mid,
                 moyenne=Decimal(
-                    str(round(self.calcul.calculer_moyenne_classe(
-                        [n for n in notes if n.matiere_id == mid]
-                    ), 2))
+                    str(
+                        round(
+                            self.calcul.calculer_moyenne_classe(
+                                [n for n in notes if n.matiere_id == mid]
+                            ),
+                            2,
+                        )
+                    )
                 ),
             )
             for mid in sorted(matiere_ids, key=str)
@@ -347,6 +473,7 @@ class PedagogieService:
                 Bulletin.tenant_id == self.tenant_id,
                 Bulletin.classe_id == classe_id,
                 Bulletin.periode_id == periode_id,
+                Bulletin.type_bulletin == "chiffre",
             )
             .order_by(Bulletin.rang)
             .all()
@@ -363,10 +490,12 @@ class PedagogieService:
         ]
 
         effectif = len(bulletins) or len(self._get_eleves_classe(classe_id))
+        note_passage = float(cycle.note_passage or 10)
         reussis = sum(
             1
             for b in bulletins
-            if b.moyenne_generale is not None and float(b.moyenne_generale) >= 10
+            if b.moyenne_generale is not None
+            and float(b.moyenne_generale) >= note_passage
         )
         taux = Decimal("0") if effectif == 0 else Decimal(
             str(round(reussis / effectif * 100, 2))
@@ -376,7 +505,59 @@ class PedagogieService:
             classe_id=classe_id,
             periode_id=periode_id,
             effectif=effectif,
+            type_evaluation=cycle.type_evaluation,
             moyennes_par_matiere=moyennes_par_matiere,
+            classement=classement,
+            taux_reussite=taux,
+        )
+
+    def _get_resultats_competences(
+        self,
+        classe_id: uuid.UUID,
+        periode_id: uuid.UUID,
+        cycle: Cycle,
+    ) -> ResultatsClasseResponse:
+        bulletins = (
+            self.db.query(Bulletin)
+            .options(joinedload(Bulletin.lignes))
+            .filter(
+                Bulletin.tenant_id == self.tenant_id,
+                Bulletin.classe_id == classe_id,
+                Bulletin.periode_id == periode_id,
+                Bulletin.type_bulletin == "competences",
+            )
+            .all()
+        )
+
+        classement = [
+            ClassementEleve(
+                eleve_id=b.eleve_id,
+                moyenne_generale=None,
+                rang=None,
+                mention=None,
+            )
+            for b in bulletins
+        ]
+
+        effectif = len(bulletins) or len(self._get_eleves_classe(classe_id))
+        acquis = 0
+        total_lignes = 0
+        for bulletin in bulletins:
+            for ligne in bulletin.lignes:
+                total_lignes += 1
+                if ligne.statut_competence == "acquis":
+                    acquis += 1
+
+        taux = Decimal("0") if total_lignes == 0 else Decimal(
+            str(round(acquis / total_lignes * 100, 2))
+        )
+
+        return ResultatsClasseResponse(
+            classe_id=classe_id,
+            periode_id=periode_id,
+            effectif=effectif,
+            type_evaluation=cycle.type_evaluation,
+            moyennes_par_matiere=[],
             classement=classement,
             taux_reussite=taux,
         )
@@ -417,6 +598,41 @@ class PedagogieService:
 
     # ── Helpers privés ──────────────────────────────────────────────────────
 
+    def _validate_note_item(
+        self,
+        item: NoteCreate,
+        is_qualitative: bool,
+        cycle: Cycle,
+    ) -> None:
+        if is_qualitative:
+            if item.valeur_qualitative is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="valeur_qualitative requise pour un cycle qualitatif",
+                )
+            if item.valeur is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Les notes chiffrées ne sont pas autorisées pour ce cycle",
+                )
+        else:
+            if item.valeur is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="valeur requise pour un cycle chiffré",
+                )
+            if item.valeur_qualitative is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Les notes qualitatives ne sont pas autorisées pour ce cycle",
+                )
+            note_max = float(cycle.note_max or 20)
+            if float(item.valeur) > note_max:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"La note ne peut pas dépasser {note_max}",
+                )
+
     def _bulletin_to_response(self, bulletin: Bulletin) -> BulletinResponse:
         bulletin = (
             self.db.query(Bulletin)
@@ -445,6 +661,29 @@ class PedagogieService:
             .all()
         )
         return [row[0] for row in inscriptions]
+
+    def _get_cycle_for_salle(self, salle: Salle) -> Cycle:
+        classe = (
+            self.db.query(Classe)
+            .filter(Classe.id == salle.classe_id, Classe.tenant_id == self.tenant_id)
+            .first()
+        )
+        if classe is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Classe introuvable",
+            )
+        cycle = (
+            self.db.query(Cycle)
+            .filter(Cycle.id == classe.cycle_id, Cycle.tenant_id == self.tenant_id)
+            .first()
+        )
+        if cycle is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cycle introuvable",
+            )
+        return cycle
 
     def _get_eleve(self, eleve_id: uuid.UUID) -> Eleve:
         eleve = (

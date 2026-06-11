@@ -30,6 +30,8 @@ class CalculService:
         total_pondere = Decimal("0")
         total_coef = Decimal("0")
         for note in notes:
+            if note.valeur is None:
+                continue
             coef = Decimal("1")
             if coefficients and note.matiere_id in coefficients:
                 coef = CalculService._to_decimal(coefficients[note.matiere_id])
@@ -49,6 +51,8 @@ class CalculService:
         total_pondere = Decimal("0")
         total_coef = Decimal("0")
         for ligne in lignes:
+            if ligne.note is None or ligne.coefficient is None:
+                continue
             coef = CalculService._to_decimal(ligne.coefficient)
             total_pondere += CalculService._to_decimal(ligne.note) * coef
             total_coef += coef
@@ -80,18 +84,21 @@ class CalculService:
         """Moyenne simple des notes d'une classe pour une matière."""
         if not notes:
             return 0.0
-        total = sum(CalculService._to_decimal(n.valeur) for n in notes)
-        return float(total / len(notes))
+        valeurs = [n.valeur for n in notes if n.valeur is not None]
+        if not valeurs:
+            return 0.0
+        total = sum(CalculService._to_decimal(v) for v in valeurs)
+        return float(total / len(valeurs))
 
     @staticmethod
-    def get_mention(moyenne: float) -> str:
+    def get_mention(moyenne: float, note_passage: float = 10.0) -> str:
         """Mention selon le barème malien standard."""
+        if moyenne < note_passage:
+            return "Insuffisant"
         if moyenne >= 16:
             return "Très Bien"
         if moyenne >= 14:
             return "Bien"
         if moyenne >= 12:
             return "Assez Bien"
-        if moyenne >= 10:
-            return "Passable"
-        return "Insuffisant"
+        return "Passable"

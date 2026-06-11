@@ -17,8 +17,6 @@ from app.schemas.etablissement import (
     ClasseCreate,
     ClasseResponse,
     ClasseUpdate,
-    ConfigNotationResponse,
-    ConfigNotationUpdate,
     CycleCreate,
     CycleResponse,
     CycleUpdate,
@@ -596,28 +594,6 @@ def delete_matiere(
     user: EstablishmentManager,
 ) -> None:
     _service(db, user, request).delete_matiere(matiere_id)
-
-
-# ── Configuration notation ──────────────────────────────────────────────────
-
-
-@router.get("/config-notation", response_model=ConfigNotationResponse)
-def get_config_notation(
-    request: Request,
-    db: DbSession,
-    user: EstablishmentReader,
-) -> ConfigNotationResponse:
-    return _service(db, user, request).get_config_notation()
-
-
-@router.put("/config-notation", response_model=ConfigNotationResponse)
-def update_config_notation(
-    body: ConfigNotationUpdate,
-    request: Request,
-    db: DbSession,
-    user: EstablishmentManager,
-) -> ConfigNotationResponse:
-    return _service(db, user, request).update_config_notation(body)
 
 
 # ── Structure globale ───────────────────────────────────────────────────────

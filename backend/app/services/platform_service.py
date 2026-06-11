@@ -26,7 +26,6 @@ from app.models.enums import (
     StatutUtilisateur,
     TypeNotification,
 )
-from app.models.etablissement import ConfigNotation
 from app.models.tenant import (
     Abonnement,
     FactureTenant,
@@ -201,14 +200,6 @@ class PlatformService:
         self.db.add(abonnement)
 
         set_tenant_context(self.db, tenant.id)
-        self.db.add(
-            ConfigNotation(
-                tenant_id=tenant.id,
-                note_max=Decimal("20.00"),
-                note_passage=Decimal("10.00"),
-                arrondi=2,
-            )
-        )
 
         mot_de_passe = self._generer_mot_de_passe_temporaire()
         promoteur = Utilisateur(

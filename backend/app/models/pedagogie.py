@@ -40,7 +40,8 @@ class Note(TenantScopedModel):
         nullable=False,
         index=True,
     )
-    valeur: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    valeur: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    valeur_qualitative: Mapped[str | None] = mapped_column(String(30), nullable=True)
     appreciation: Mapped[str | None] = mapped_column(Text, nullable=True)
     saisi_par: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -75,6 +76,9 @@ class Bulletin(TenantScopedModel):
     effectif_classe: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mention: Mapped[str | None] = mapped_column(String(50), nullable=True)
     appreciation_generale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    type_bulletin: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="chiffre"
+    )
     statut: Mapped[StatutBulletin] = mapped_column(
         pg_enum(StatutBulletin, "statut_bulletin"),
         nullable=False,
@@ -112,9 +116,10 @@ class BulletinLigne(Base):
         nullable=False,
         index=True,
     )
-    note: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    note: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     moyenne_classe: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
-    coefficient: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=1)
+    coefficient: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True, default=1)
+    statut_competence: Mapped[str | None] = mapped_column(String(30), nullable=True)
     appreciation: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     bulletin: Mapped["Bulletin"] = relationship(back_populates="lignes")

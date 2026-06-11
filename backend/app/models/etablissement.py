@@ -17,6 +17,13 @@ class Cycle(TenantScopedModel):
     nom: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     ordre: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    type_evaluation: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="chiffree"
+    )
+    note_max: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    note_passage: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    arrondi: Mapped[int | None] = mapped_column(Integer, nullable=True, default=2)
+    valeur_systeme_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     classes: Mapped[list["Classe"]] = relationship(back_populates="cycle")
 
@@ -108,13 +115,8 @@ class Matiere(TenantScopedModel):
     nom: Mapped[str] = mapped_column(String(100), nullable=False)
     coefficient: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=1)
     est_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    est_domaine_competence: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
 
     classe: Mapped["Classe"] = relationship(back_populates="matieres")
-
-
-class ConfigNotation(TenantScopedModel):
-    __tablename__ = "config_notation"
-
-    note_max: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=20)
-    note_passage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=10)
-    arrondi: Mapped[int] = mapped_column(Integer, nullable=False, default=2)

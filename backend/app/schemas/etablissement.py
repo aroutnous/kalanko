@@ -4,19 +4,59 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
+
+TypeEvaluation = Literal["chiffree", "qualitative"]
+VALEURS_QUALITATIVES = ("acquis", "en_cours_acquisition", "non_acquis")
 
 
 class CycleCreate(BaseModel):
     nom: str = Field(..., min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=2000)
     ordre: int = Field(default=0, ge=0)
+    type_evaluation: TypeEvaluation = "chiffree"
+    note_max: Decimal | None = Field(default=Decimal("20.00"), gt=0)
+    note_passage: Decimal | None = Field(default=Decimal("10.00"), ge=0)
+    arrondi: int | None = Field(default=2, ge=0, le=4)
+    valeur_systeme_ref: str | None = Field(default=None, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_notation(self) -> "CycleCreate":
+        if self.type_evaluation == "qualitative":
+            object.__setattr__(self, "note_max", None)
+            object.__setattr__(self, "note_passage", None)
+            object.__setattr__(self, "arrondi", None)
+        elif self.note_passage is not None and self.note_max is not None:
+            if self.note_passage > self.note_max:
+                raise ValueError("note_passage ne peut pas dépasser note_max")
+        return self
 
 
 class CycleUpdate(BaseModel):
     nom: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=2000)
     ordre: int | None = Field(default=None, ge=0)
+    type_evaluation: TypeEvaluation | None = None
+    note_max: Decimal | None = Field(default=None, gt=0)
+    note_passage: Decimal | None = Field(default=None, ge=0)
+    arrondi: int | None = Field(default=None, ge=0, le=4)
+    valeur_systeme_ref: str | None = Field(default=None, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_notation(self) -> "CycleUpdate":
+        if self.type_evaluation == "qualitative":
+            object.__setattr__(self, "note_max", None)
+            object.__setattr__(self, "note_passage", None)
+            object.__setattr__(self, "arrondi", None)
+        elif (
+            self.note_passage is not None
+            and self.note_max is not None
+            and self.note_passage > self.note_max
+        ):
+            raise ValueError("note_passage ne peut pas dépasser note_max")
+        return self
 
 
 class CycleResponse(BaseModel):
@@ -25,6 +65,11 @@ class CycleResponse(BaseModel):
     nom: str
     description: str | None
     ordre: int
+    type_evaluation: str
+    note_max: Decimal | None
+    note_passage: Decimal | None
+    arrondi: int | None
+    valeur_systeme_ref: str | None
 
     model_config = {"from_attributes": True}
 
@@ -180,6 +225,7 @@ class MatiereCreate(BaseModel):
     nom: str = Field(..., min_length=1, max_length=100)
     coefficient: Decimal = Field(default=Decimal("1.00"), gt=0)
     est_active: bool = True
+    est_domaine_competence: bool = False
     niveau_id: uuid.UUID | None = Field(default=None, exclude=True)
 
     @model_validator(mode="after")
@@ -195,6 +241,7 @@ class MatiereUpdate(BaseModel):
     nom: str | None = Field(default=None, min_length=1, max_length=100)
     coefficient: Decimal | None = Field(default=None, gt=0)
     est_active: bool | None = None
+    est_domaine_competence: bool | None = None
 
 
 class MatiereResponse(BaseModel):
@@ -204,28 +251,7 @@ class MatiereResponse(BaseModel):
     nom: str
     coefficient: Decimal
     est_active: bool
-
-    model_config = {"from_attributes": True}
-
-
-class ConfigNotationCreate(BaseModel):
-    note_max: Decimal = Field(default=Decimal("20.00"), gt=0)
-    note_passage: Decimal = Field(default=Decimal("10.00"), ge=0)
-    arrondi: int = Field(default=2, ge=0, le=4)
-
-
-class ConfigNotationUpdate(BaseModel):
-    note_max: Decimal | None = Field(default=None, gt=0)
-    note_passage: Decimal | None = Field(default=None, ge=0)
-    arrondi: int | None = Field(default=None, ge=0, le=4)
-
-
-class ConfigNotationResponse(BaseModel):
-    id: uuid.UUID
-    tenant_id: uuid.UUID
-    note_max: Decimal
-    note_passage: Decimal
-    arrondi: int
+    est_domaine_competence: bool
 
     model_config = {"from_attributes": True}
 
@@ -247,11 +273,6 @@ class EtablissementStructure(BaseModel):
     cycles: list[CycleStructureResponse] = Field(default_factory=list)
     annees_scolaires: list[AnneeScolaireResponse] = Field(default_factory=list)
     annee_active: AnneeScolaireResponse | None = None
-
-
-class EtablissementConfig(BaseModel):
-    structure: EtablissementStructure
-    config_notation: ConfigNotationResponse
 
 
 class DupliquerStructureResponse(BaseModel):
@@ -284,12 +305,6 @@ class WizardMatiereItem(BaseModel):
     coefficient: Decimal = Field(default=Decimal("1.00"), gt=0)
 
 
-class WizardConfigNotation(BaseModel):
-    note_max: Decimal = Field(default=Decimal("20.00"), gt=0)
-    note_passage: Decimal = Field(default=Decimal("10.00"), ge=0)
-    arrondi: int = Field(default=2, ge=0, le=4)
-
-
 class WizardEtablissementData(BaseModel):
     annee_scolaire: str
     periodes: list[WizardPeriodeItem]
@@ -297,7 +312,6 @@ class WizardEtablissementData(BaseModel):
     classes_selectionnees: list[WizardClasseItem]
     salles: list[WizardSalleItem]
     matieres: list[WizardMatiereItem]
-    config_notation: WizardConfigNotation
 
 
 class WizardEtablissementResponse(BaseModel):

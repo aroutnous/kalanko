@@ -30,7 +30,6 @@ from app.models.enums import (
 from app.models.etablissement import (
     AnneeScolaire,
     Classe,
-    ConfigNotation,
     Cycle,
     Matiere,
     Periode,
@@ -68,7 +67,6 @@ __all__ = [
     "Periode",
     "Matiere",
     "ValeurSysteme",
-    "ConfigNotation",
     "Eleve",
     "Inscription",
     "Absence",

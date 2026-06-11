@@ -264,11 +264,6 @@ async def test_wizard_etablissement_complet(
             {"classe": "1ere Annee", "nom": "Français", "coefficient": "2"},
             {"classe": "1ere Annee", "nom": "Mathématiques", "coefficient": "3"},
         ],
-        "config_notation": {
-            "note_max": "20",
-            "note_passage": "10",
-            "arrondi": 2,
-        },
     }
     response = await async_client.post("/wizard", json=payload, headers=auth_headers)
     assert response.status_code == 201
