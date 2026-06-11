@@ -78,7 +78,8 @@ def require_establishment_read() -> Callable[..., Utilisateur]:
 
 EstablishmentReader = Annotated[Utilisateur, Depends(require_establishment_read())]
 EstablishmentManager = Annotated[
-    Utilisateur, Depends(require_permission(Permission.CLASSES_GERER.value))
+    Utilisateur,
+    Depends(require_permission(Permission.ETABLISSEMENT_CONFIGURER.value)),
 ]
 
 
@@ -478,6 +479,16 @@ def activer_annee_scolaire(
     return _service(db, user, request).activer_annee_scolaire(annee_id)
 
 
+@router.delete("/annees-scolaires/{annee_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_annee_scolaire(
+    annee_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user: EstablishmentManager,
+) -> None:
+    _service(db, user, request).delete_annee_scolaire(annee_id)
+
+
 # ── Périodes ────────────────────────────────────────────────────────────────
 
 
@@ -520,6 +531,16 @@ def update_periode(
     user: EstablishmentManager,
 ) -> PeriodeResponse:
     return _service(db, user, request).update_periode(periode_id, body)
+
+
+@router.delete("/periodes/{periode_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_periode(
+    periode_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user: EstablishmentManager,
+) -> None:
+    _service(db, user, request).delete_periode(periode_id)
 
 
 # ── Matières ────────────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     LoginResponse,
     ResetPasswordResponse,
+    TenantPublicInfo,
     UtilisateurCreate,
     UtilisateurCreateResponse,
     UtilisateurListItem,
@@ -43,6 +44,28 @@ class AuthService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def get_tenant_public(self, slug: str) -> TenantPublicInfo:
+        """Informations publiques d'un tenant pour la page de connexion."""
+        normalized = slug.strip().lower()
+        if not normalized:
+            return TenantPublicInfo(existe=False)
+
+        tenant = self.db.query(Tenant).filter(Tenant.slug == normalized).first()
+        if tenant is None:
+            return TenantPublicInfo(existe=False)
+
+        if tenant.statut == StatutTenant.SUSPENDU:
+            return TenantPublicInfo(existe=False, suspendu=True)
+
+        if tenant.statut != StatutTenant.ACTIF:
+            return TenantPublicInfo(existe=False)
+
+        return TenantPublicInfo(
+            existe=True,
+            nom=tenant.nom,
+            logo_url=tenant.logo_url,
+        )
 
     def login(
         self,

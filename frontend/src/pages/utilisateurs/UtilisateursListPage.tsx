@@ -1,5 +1,5 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Pencil, Plus, Shield, Trash2 } from "lucide-react";
+import { Copy, KeyRound, Pencil, Plus, Shield, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { PermissionsModal, type PermissionsModalUser } from "@/components/utilisateurs/PermissionsModal";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { api, getErrorMessage } from "@/lib/api";
 import { ROLE_LABELS } from "@/lib/constants";
+import { buildTenantLoginUrl } from "@/lib/tenant-login";
 import { formatPermissionCount } from "@/lib/permissions";
 import { UTILISATEURS_API } from "@/lib/utilisateurs-api";
 import { CreerUtilisateurModal } from "@/pages/utilisateurs/CreerUtilisateurModal";
@@ -49,6 +50,7 @@ export function UtilisateursListPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const tenantSlug = useAuthStore((s) => s.tenant?.slug ?? s.user?.tenant_slug);
   const [modalOpen, setModalOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState("");
   const [statutFilter, setStatutFilter] = useState("");
@@ -326,6 +328,30 @@ export function UtilisateursListPage(): React.JSX.Element {
           </Button>
         }
       />
+
+      {tenantSlug ? (
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <p className="text-sm text-muted-foreground">
+            Partagez ce lien avec vos utilisateurs :
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code className="rounded bg-background px-2 py-1 text-sm">
+              {buildTenantLoginUrl(tenantSlug)}
+            </code>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void navigator.clipboard.writeText(buildTenantLoginUrl(tenantSlug));
+                toast("Lien copié");
+              }}
+            >
+              <Copy className="mr-1 h-4 w-4" />
+              Copier
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {resetPassword ? (
         <div className="mb-4">

@@ -14,13 +14,26 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Chemins publics sans contexte tenant (pas de JWT requis)
+# Les entrées se terminant par « / » autorisent tout sous-chemin (ex. /auth/tenant/{slug})
 PUBLIC_PATHS: frozenset[str] = frozenset({
     "/health",
     "/auth/login",
+    "/auth/tenant/",
     "/auth/reset-password/request",
     "/auth/reset-password/confirm",
     "/finance/webhook/mobile-money",
 })
+
+
+def _is_public_path(path: str) -> bool:
+    if path in PUBLIC_PATHS:
+        return True
+    for public in PUBLIC_PATHS:
+        if public.endswith("/"):
+            base = public.rstrip("/")
+            if path == base or path.startswith(f"{base}/"):
+                return True
+    return False
 
 
 class TenantMiddleware(BaseHTTPMiddleware):
@@ -35,7 +48,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         path = request.url.path.rstrip("/") or "/"
 
-        if path in PUBLIC_PATHS or request.method == "OPTIONS":
+        if _is_public_path(path) or request.method == "OPTIONS":
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization")

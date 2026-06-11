@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.eleve import Inscription
+from app.models.finance import FraisScolaire
 from app.models.etablissement import (
     AnneeScolaire,
     Classe,
@@ -387,6 +388,37 @@ class EtablissementService:
         self._audit("establishment.annee.activate", "annees_scolaires", annee.id)
         return AnneeScolaireResponse.model_validate(annee)
 
+    def delete_annee_scolaire(self, annee_id: uuid.UUID) -> None:
+        annee = self._get_annee(annee_id)
+        if annee.est_active:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Impossible de supprimer l'année scolaire active",
+            )
+        linked_checks: list[tuple[type, str]] = [
+            (Periode, "périodes"),
+            (Salle, "salles"),
+            (Inscription, "inscriptions"),
+            (FraisScolaire, "frais scolaires"),
+        ]
+        for model, label in linked_checks:
+            count = (
+                self.db.query(model)
+                .filter(
+                    model.tenant_id == self.tenant_id,
+                    model.annee_scolaire_id == annee_id,
+                )
+                .count()
+            )
+            if count > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Impossible de supprimer une année avec des {label}",
+                )
+        self.db.delete(annee)
+        self.db.commit()
+        self._audit("establishment.annee.delete", "annees_scolaires", annee_id)
+
     # ── Périodes ────────────────────────────────────────────────────────────
 
     def create_periode(self, data: PeriodeCreate) -> PeriodeResponse:
@@ -433,6 +465,26 @@ class EtablissementService:
         self.db.refresh(periode)
         self._audit("establishment.periode.update", "periodes", periode.id)
         return PeriodeResponse.model_validate(periode)
+
+    def delete_periode(self, periode_id: uuid.UUID) -> None:
+        periode = self._get_periode(periode_id)
+        has_notes = (
+            self.db.query(Note)
+            .filter(
+                Note.tenant_id == self.tenant_id,
+                Note.periode_id == periode_id,
+            )
+            .count()
+            > 0
+        )
+        if has_notes:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Impossible de supprimer une période avec des notes",
+            )
+        self.db.delete(periode)
+        self.db.commit()
+        self._audit("establishment.periode.delete", "periodes", periode_id)
 
     # ── Matières ────────────────────────────────────────────────────────────
 

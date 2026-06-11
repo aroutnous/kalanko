@@ -19,6 +19,7 @@ from app.schemas.auth import (
     ResetPasswordConfirm,
     ResetPasswordRequest,
     ResetPasswordResponse,
+    TenantPublicInfo,
     UtilisateurCreate,
     UtilisateurCreateResponse,
     UtilisateurListItem,
@@ -73,6 +74,12 @@ def _get_token(
     return _extract_bearer_token(credentials)
 
 
+@router.get("/tenant/{slug}", response_model=TenantPublicInfo)
+def get_tenant_public(slug: str, db: DbSession) -> TenantPublicInfo:
+    """Informations publiques du tenant (page de connexion dédiée)."""
+    return AuthService(db).get_tenant_public(slug)
+
+
 @router.post("/login", response_model=LoginResponse)
 @limiter.limit("5/10minutes")
 def login(
@@ -83,13 +90,19 @@ def login(
     """
     Authentification multi-tenant : email, mot de passe, slug établissement.
 
+    Le slug peut être fourni dans le corps ou via l'en-tête X-Tenant-Slug.
+
     Rate limit : 5 tentatives / 10 minutes par IP (Redis via slowapi).
     """
     service = AuthService(db)
+    tenant_slug = body.tenant_slug.strip()
+    if not tenant_slug:
+        header_slug = request.headers.get("X-Tenant-Slug", "").strip()
+        tenant_slug = header_slug
     return service.login(
         email=body.email,
         password=body.password,
-        tenant_slug=body.tenant_slug,
+        tenant_slug=tenant_slug,
         ip_address=_client_ip(request),
     )
 

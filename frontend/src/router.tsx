@@ -10,6 +10,7 @@ import { getPostLoginRoute } from "@/lib/auth-routes";
 import { ROUTES } from "@/lib/constants";
 import { AdminLoginPage } from "@/pages/auth/AdminLoginPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
+import { LoginPageGeneric } from "@/pages/auth/LoginPageGeneric";
 import { ClassesPage } from "@/pages/classes/ClassesPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { AnneesPage } from "@/pages/etablissement/AnneesPage";
@@ -53,7 +54,16 @@ import { ProfilPage } from "@/pages/utilisateurs/ProfilPage";
 import { UtilisateursListPage } from "@/pages/utilisateurs/UtilisateursListPage";
 import { useAuthStore } from "@/stores/authStore";
 
-function LoginPageGate(): React.JSX.Element {
+function LoginGenericPageGate(): React.JSX.Element {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const role = useAuthStore((s) => s.user?.role);
+  if (isAuthenticated) {
+    return <Navigate to={getPostLoginRoute(role)} replace />;
+  }
+  return <LoginPageGeneric />;
+}
+
+function LoginSlugPageGate(): React.JSX.Element {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
   if (isAuthenticated) {
@@ -96,7 +106,8 @@ function PlatformRoute(): React.JSX.Element {
 }
 
 export const router = createBrowserRouter([
-  { path: ROUTES.login, element: <LoginPageGate /> },
+  { path: ROUTES.login, element: <LoginGenericPageGate /> },
+  { path: "/login/:slug", element: <LoginSlugPageGate /> },
   { path: ROUTES.adminLogin, element: <AdminLoginPageGate /> },
   {
     path: "/",

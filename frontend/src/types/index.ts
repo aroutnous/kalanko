@@ -24,6 +24,13 @@ export interface Tenant {
   nom?: string;
 }
 
+export interface TenantPublicInfo {
+  existe: boolean;
+  nom: string | null;
+  logo_url: string | null;
+  suspendu?: boolean;
+}
+
 export interface LoginPayload {
   tenant_slug?: string;
   email: string;

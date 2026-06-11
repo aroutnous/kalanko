@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FormModal } from "@/components/etablissement/FormModal";
 import { StatusBadge } from "@/components/etablissement/StatusBadge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { useEstablishmentAccess } from "@/hooks/useEstablishmentAccess";
+import { useMenuAccess } from "@/hooks/useMenuAccess";
 import { api, getErrorMessage } from "@/lib/api";
 import { ETABLISSEMENT_API } from "@/lib/etablissement-api";
 import { useToastStore } from "@/stores/toastStore";
@@ -26,8 +27,11 @@ const INITIAL: MatiereForm = { nom: "", coefficient: "1", classe_id: "" };
 export function MatieresPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
-  const { canManage } = useEstablishmentAccess();
+  const { can } = useMenuAccess();
+  const canConfigure = can.etablissementConfigurer;
   const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Matiere | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Matiere | null>(null);
   const [form, setForm] = useState<MatiereForm>(INITIAL);
 
   const { data: classesNiveau = [], isLoading: loadingClasses } = useQuery({
@@ -60,11 +64,21 @@ export function MatieresPage(): React.JSX.Element {
     }));
   }, [classesNiveau, matieres]);
 
-  const createMutation = useMutation({
-    mutationFn: async (payload: MatiereForm) => {
-      const { data } = await api.post<Matiere>(ETABLISSEMENT_API.matieres, {
+  const saveMutation = useMutation({
+    mutationFn: async ({ payload, id }: { payload: MatiereForm; id?: string }) => {
+      const body = {
         nom: payload.nom,
         coefficient: payload.coefficient,
+      };
+      if (id) {
+        const { data } = await api.put<Matiere>(
+          `${ETABLISSEMENT_API.matieres}/${id}`,
+          body,
+        );
+        return data;
+      }
+      const { data } = await api.post<Matiere>(ETABLISSEMENT_API.matieres, {
+        ...body,
         classe_id: payload.classe_id,
         est_active: true,
       });
@@ -72,8 +86,9 @@ export function MatieresPage(): React.JSX.Element {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["matieres"] });
-      toast("Matière créée");
+      toast(editTarget ? "Matière modifiée" : "Matière créée");
       setOpen(false);
+      setEditTarget(null);
       setForm(INITIAL);
     },
     onError: (err) => toast(getErrorMessage(err), "error"),
@@ -101,18 +116,79 @@ export function MatieresPage(): React.JSX.Element {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["matieres"] });
       toast("Matière supprimée");
+      setDeleteTarget(null);
     },
     onError: (err) => toast(getErrorMessage(err), "error"),
   });
 
+  const openCreate = (): void => {
+    setEditTarget(null);
+    setForm(INITIAL);
+    setOpen(true);
+  };
+
+  const openEdit = (matiere: Matiere): void => {
+    setEditTarget(matiere);
+    setForm({
+      nom: matiere.nom,
+      coefficient: String(matiere.coefficient),
+      classe_id: matiere.classe_id,
+    });
+    setOpen(true);
+  };
+
   if (loadingClasses || loadingMatieres) return <LoadingSpinner />;
+
+  const formFields = (
+    <>
+      {!editTarget ? (
+        <div className="space-y-2">
+          <Label htmlFor="classe_id">Classe</Label>
+          <Select
+            id="classe_id"
+            value={form.classe_id}
+            onChange={(e) => setForm((p) => ({ ...p, classe_id: e.target.value }))}
+            required
+          >
+            <option value="">Sélectionner</option>
+            {classesNiveau.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nom}
+              </option>
+            ))}
+          </Select>
+        </div>
+      ) : null}
+      <div className="space-y-2">
+        <Label htmlFor="nom">Nom</Label>
+        <Input
+          id="nom"
+          value={form.nom}
+          onChange={(e) => setForm((p) => ({ ...p, nom: e.target.value }))}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="coefficient">Coefficient</Label>
+        <Input
+          id="coefficient"
+          type="number"
+          min="0.1"
+          step="0.1"
+          value={form.coefficient}
+          onChange={(e) => setForm((p) => ({ ...p, coefficient: e.target.value }))}
+          required
+        />
+      </div>
+    </>
+  );
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Matières par classe</h2>
-        {canManage ? (
-          <Button onClick={() => setOpen(true)}>
+        {canConfigure ? (
+          <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Nouvelle matière
           </Button>
@@ -133,7 +209,7 @@ export function MatieresPage(): React.JSX.Element {
                       <th className="px-4 py-2">Nom</th>
                       <th className="px-4 py-2">Coefficient</th>
                       <th className="px-4 py-2">Statut</th>
-                      {canManage ? <th className="px-4 py-2">Actions</th> : null}
+                      {canConfigure ? <th className="px-4 py-2">Actions</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -147,9 +223,17 @@ export function MatieresPage(): React.JSX.Element {
                             label={m.est_active ? "Active" : "Inactive"}
                           />
                         </td>
-                        {canManage ? (
+                        {canConfigure ? (
                           <td className="px-4 py-2">
                             <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEdit(m)}
+                              >
+                                <Pencil className="mr-1 h-4 w-4" />
+                                Modifier
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -159,9 +243,10 @@ export function MatieresPage(): React.JSX.Element {
                               </Button>
                               <Button
                                 size="sm"
-                                variant="ghost"
-                                onClick={() => deleteMutation.mutate(m.id)}
+                                variant="outline"
+                                onClick={() => setDeleteTarget(m)}
                               >
+                                <Trash2 className="mr-1 h-4 w-4" />
                                 Supprimer
                               </Button>
                             </div>
@@ -179,49 +264,36 @@ export function MatieresPage(): React.JSX.Element {
 
       <FormModal
         open={open}
-        title="Nouvelle matière"
-        onClose={() => setOpen(false)}
-        onSubmit={() => createMutation.mutate(form)}
-        loading={createMutation.isPending}
+        title={editTarget ? "Modifier la matière" : "Nouvelle matière"}
+        onClose={() => {
+          setOpen(false);
+          setEditTarget(null);
+        }}
+        onSubmit={() => saveMutation.mutate({ payload: form, id: editTarget?.id })}
+        loading={saveMutation.isPending}
+        submitLabel={editTarget ? "Enregistrer" : "Créer"}
       >
-        <div className="space-y-2">
-          <Label htmlFor="classe_id">Classe</Label>
-          <Select
-            id="classe_id"
-            value={form.classe_id}
-            onChange={(e) => setForm((p) => ({ ...p, classe_id: e.target.value }))}
-            required
-          >
-            <option value="">Sélectionner</option>
-            {classesNiveau.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nom}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="nom">Nom</Label>
-          <Input
-            id="nom"
-            value={form.nom}
-            onChange={(e) => setForm((p) => ({ ...p, nom: e.target.value }))}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="coefficient">Coefficient</Label>
-          <Input
-            id="coefficient"
-            type="number"
-            min="0.1"
-            step="0.1"
-            value={form.coefficient}
-            onChange={(e) => setForm((p) => ({ ...p, coefficient: e.target.value }))}
-            required
-          />
-        </div>
+        {formFields}
       </FormModal>
+
+      <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)}>
+        <h2 className="mb-2 text-lg font-semibold">Confirmer la suppression</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Supprimer {deleteTarget?.nom} ? Cette action est irréversible.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            Annuler
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+          >
+            Supprimer
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

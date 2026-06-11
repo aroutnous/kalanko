@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { api, getErrorMessage } from "@/lib/api";
 import { ROUTES } from "@/lib/constants";
 import { PLATFORM_API } from "@/lib/platform-api";
+import { buildTenantLoginUrl } from "@/lib/tenant-login";
 import { TenantEditModal } from "@/pages/platform/TenantEditModal";
 import { useToastStore } from "@/stores/toastStore";
 import type { PlatformTenant, StatutTenant } from "@/types";
@@ -86,6 +87,31 @@ export function TenantsListPage(): React.JSX.Element {
     { key: "nom", header: "Nom", render: (r) => r.nom },
     { key: "slug", header: "Slug", render: (r) => r.slug },
     { key: "email", header: "Email", render: (r) => r.email ?? "—" },
+    {
+      key: "login",
+      header: "Lien de connexion",
+      render: (r) => {
+        const url = buildTenantLoginUrl(r.slug);
+        return (
+          <div className="flex items-center gap-2">
+            <span className="max-w-[200px] truncate text-xs" title={url}>
+              {url}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void navigator.clipboard.writeText(url);
+                toast("Lien copié");
+              }}
+              title="Copier le lien"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
+    },
     {
       key: "statut",
       header: "Statut",

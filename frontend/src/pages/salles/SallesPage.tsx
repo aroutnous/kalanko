@@ -12,7 +12,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { useEstablishmentAccess } from "@/hooks/useEstablishmentAccess";
+import { useMenuAccess } from "@/hooks/useMenuAccess";
 import { api, getErrorMessage } from "@/lib/api";
 import { ETABLISSEMENT_API } from "@/lib/etablissement-api";
 import { useToastStore } from "@/stores/toastStore";
@@ -46,7 +46,8 @@ const INITIAL: SalleForm = {
 export function SallesPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
-  const { canManage } = useEstablishmentAccess();
+  const { can } = useMenuAccess();
+  const canConfigure = can.etablissementConfigurer;
   const [open, setOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Salle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Salle | null>(null);
@@ -197,7 +198,7 @@ export function SallesPage(): React.JSX.Element {
       key: "actions",
       header: "Actions",
       render: (r) =>
-        canManage ? (
+        canConfigure ? (
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
               <Pencil className="mr-1 h-4 w-4" />
@@ -227,7 +228,7 @@ export function SallesPage(): React.JSX.Element {
       />
 
       <div className="mb-4 flex justify-end">
-        {canManage ? (
+        {canConfigure ? (
           <Button onClick={openCreate} disabled={!anneeActive}>
             <Plus className="mr-2 h-4 w-4" />
             Nouvelle salle
@@ -303,7 +304,8 @@ export function SallesPage(): React.JSX.Element {
       <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)}>
         <h2 className="mb-2 text-lg font-semibold">Supprimer la salle</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Confirmer la suppression de {deleteTarget?.nom_salle ?? deleteTarget?.nom} ?
+          Supprimer {deleteTarget?.nom_salle ?? deleteTarget?.nom} ? Cette action est
+          irréversible.
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setDeleteTarget(null)}>

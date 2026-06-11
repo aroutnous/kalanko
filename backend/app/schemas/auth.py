@@ -16,6 +16,13 @@ ROLES_CREATABLE_PAR_PROMOTEUR: frozenset[RoleUtilisateur] = frozenset(
 )
 
 
+class TenantPublicInfo(BaseModel):
+    existe: bool
+    nom: str | None = None
+    logo_url: str | None = None
+    suspendu: bool = False
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
