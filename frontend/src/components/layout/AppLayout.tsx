@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookMarked,
   BookOpen,
   Building2,
   CalendarX,
@@ -36,6 +37,7 @@ interface NavItem {
   show: boolean;
   end?: boolean;
   badge?: string;
+  isActive?: (pathname: string) => boolean;
 }
 
 export function AppLayout(): React.JSX.Element {
@@ -70,6 +72,16 @@ export function AppLayout(): React.JSX.Element {
       icon: Building2,
       show: menuAccess.showEtablissement,
       badge: anneeFetched && !anneeActive ? "À configurer" : undefined,
+      isActive: (pathname) =>
+        pathname.startsWith("/etablissement") &&
+        !pathname.startsWith(ROUTES.etablissementMatieres),
+    },
+    {
+      to: ROUTES.etablissementMatieres,
+      label: "Matières",
+      icon: BookMarked,
+      show: menuAccess.can.etablissementConfigurer,
+      end: true,
     },
     {
       to: ROUTES.eleves,
@@ -163,7 +175,7 @@ export function AppLayout(): React.JSX.Element {
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
+                    (item.isActive ? item.isActive(location.pathname) : isActive)
                       ? "bg-primary text-primary-foreground"
                       : "text-foreground hover:bg-muted",
                   )

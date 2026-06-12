@@ -7,7 +7,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -27,31 +27,14 @@ import { cn } from "@/lib/utils";
 import { useToastStore } from "@/stores/toastStore";
 import type {
   AnneeScolaire,
-  Cycle,
-  CycleUpdatePayload,
   ValeurSysteme,
   WizardEtablissementData,
   WizardEtablissementResponse,
 } from "@/types";
 
-const STEPS = [
-  "Année",
-  "Périodes",
-  "Cycles",
-  "Classes",
-  "Salles",
-  "Matières",
-  "Notation par cycle",
-] as const;
+const STEPS = ["Année", "Périodes", "Cycles", "Classes", "Salles"] as const;
 
-interface CycleNotationDraft {
-  type_evaluation: "chiffree" | "qualitative";
-  note_max: string;
-  note_passage: string;
-  arrondi: string;
-}
-
-type StepIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type StepIndex = 0 | 1 | 2 | 3 | 4;
 
 interface PeriodeDraft {
   enabled: boolean;
@@ -64,15 +47,6 @@ interface SalleDraft {
   nom_salle: string;
   capacite: string;
 }
-
-interface MatiereDraft {
-  localId: string;
-  nom: string;
-  coefficient: string;
-  est_domaine_competence: boolean;
-}
-
-const JARDIN_CYCLE = "Jardins d enfants";
 
 function classeKey(cycle: string, classe: string): string {
   return `${cycle}::${classe}`;
@@ -94,19 +68,6 @@ function displayCycleLabel(valeur: string): string {
   return valeur;
 }
 
-function isJardinCycle(cycle: string): boolean {
-  return cycle === JARDIN_CYCLE;
-}
-
-function newMatiereDraft(cycle: string): MatiereDraft {
-  return {
-    localId: newLocalId(),
-    nom: "",
-    coefficient: "1",
-    est_domaine_competence: isJardinCycle(cycle),
-  };
-}
-
 export function WizardEtablissementPage(): React.JSX.Element {
   const navigate = useNavigate();
   const toast = useToastStore((s) => s.show);
@@ -117,10 +78,6 @@ export function WizardEtablissementPage(): React.JSX.Element {
   const [cyclesSelectionnes, setCyclesSelectionnes] = useState<Set<string>>(new Set());
   const [classesSelectionnees, setClassesSelectionnees] = useState<Set<string>>(new Set());
   const [salles, setSalles] = useState<Record<string, SalleDraft[]>>({});
-  const [matieres, setMatieres] = useState<Record<string, MatiereDraft[]>>({});
-  const [cycleNotation, setCycleNotation] = useState<Record<string, CycleNotationDraft>>(
-    {},
-  );
   const [stepError, setStepError] = useState<string | null>(null);
   const [pendingCycleDeselect, setPendingCycleDeselect] = useState<string | null>(null);
 
@@ -233,53 +190,11 @@ export function WizardEtablissementPage(): React.JSX.Element {
     return keys.length > 0 && keys.every((key) => classesSelectionnees.has(key));
   };
 
-  useEffect(() => {
-    if (step !== 6) return;
-    setCycleNotation((prev) => {
-      const next = { ...prev };
-      for (const cycleName of cyclesSelectionnesOrdered) {
-        if (next[cycleName]) continue;
-        const valeur = cyclesSorted.find((c) => c.valeur === cycleName);
-        next[cycleName] = parseCycleNotationFromValeur(valeur?.metadata_json);
-      }
-      return next;
-    });
-  }, [step, cyclesSelectionnesOrdered, cyclesSorted]);
-
   const wizardMutation = useMutation({
-    mutationFn: async ({
-      payload,
-      notations,
-    }: {
-      payload: WizardEtablissementData;
-      notations: Record<string, CycleNotationDraft>;
-    }) => {
+    mutationFn: async (payload: WizardEtablissementData) => {
       const { data } = await api.post<WizardEtablissementResponse>(
         ETABLISSEMENT_API.wizard,
         payload,
-      );
-      const { data: cycles } = await api.get<Cycle[]>(ETABLISSEMENT_API.cycles);
-      await Promise.all(
-        cyclesSelectionnesOrdered.map(async (cycleName) => {
-          const cycle = cycles.find((c) => c.nom === cycleName);
-          const notation = notations[cycleName];
-          if (!cycle || !notation) return;
-          const body: CycleUpdatePayload =
-            notation.type_evaluation === "qualitative"
-              ? {
-                  type_evaluation: "qualitative",
-                  note_max: null,
-                  note_passage: null,
-                  arrondi: null,
-                }
-              : {
-                  type_evaluation: "chiffree",
-                  note_max: Number(notation.note_max),
-                  note_passage: Number(notation.note_passage),
-                  arrondi: Number(notation.arrondi),
-                };
-          await api.put(`${ETABLISSEMENT_API.cycles}/${cycle.id}`, body);
-        }),
       );
       return data;
     },
@@ -320,26 +235,12 @@ export function WizardEtablissementPage(): React.JSX.Element {
       }
       return next;
     });
-    setMatieres((prev) => {
-      const next = { ...prev };
-      for (const key of Object.keys(next)) {
-        if (key.startsWith(prefix)) delete next[key];
-      }
-      return next;
-    });
-    setCycleNotation((prev) => {
-      const next = { ...prev };
-      delete next[cycle];
-      return next;
-    });
   };
 
   const cycleHasConfiguration = (cycle: string): boolean => {
     const prefix = `${cycle}::`;
     if ([...classesSelectionnees].some((key) => key.startsWith(prefix))) return true;
-    if (Object.keys(salles).some((key) => key.startsWith(prefix))) return true;
-    if (Object.keys(matieres).some((key) => key.startsWith(prefix))) return true;
-    return cycle in cycleNotation;
+    return Object.keys(salles).some((key) => key.startsWith(prefix));
   };
 
   const toggleCycle = (cycle: string, checked: boolean): void => {
@@ -445,38 +346,6 @@ export function WizardEtablissementPage(): React.JSX.Element {
           }
         }
         return null;
-      case 5:
-        for (const { key, classe } of selectedClassesList) {
-          for (const m of matieres[key] ?? []) {
-            if (!m.nom.trim()) return `Nom de matière manquant pour ${classe}.`;
-            const coef = Number(m.coefficient);
-            if (!Number.isFinite(coef) || coef <= 0) {
-              return `Coefficient invalide pour une matière de ${classe}.`;
-            }
-          }
-        }
-        return null;
-      case 6: {
-        for (const cycleName of cyclesSelectionnesOrdered) {
-          const n = cycleNotation[cycleName];
-          if (!n) {
-            return `Notation manquante pour ${displayCycleLabel(cycleName)}.`;
-          }
-          if (n.type_evaluation === "qualitative") continue;
-          const max = Number(n.note_max);
-          const passage = Number(n.note_passage);
-          if (!Number.isFinite(max) || max <= 0) {
-            return `Note maximale invalide pour ${displayCycleLabel(cycleName)}.`;
-          }
-          if (!Number.isFinite(passage) || passage < 0) {
-            return `Note de passage invalide pour ${displayCycleLabel(cycleName)}.`;
-          }
-          if (passage > max) {
-            return `La note de passage dépasse la note max pour ${displayCycleLabel(cycleName)}.`;
-          }
-        }
-        return null;
-      }
       default:
         return null;
     }
@@ -490,7 +359,7 @@ export function WizardEtablissementPage(): React.JSX.Element {
     }
     setStepError(null);
     if (step === 0) initPeriodesIfNeeded();
-    if (step < 6) setStep((step + 1) as StepIndex);
+    if (step < 4) setStep((step + 1) as StepIndex);
   };
 
   const goPrev = (): void => {
@@ -499,7 +368,7 @@ export function WizardEtablissementPage(): React.JSX.Element {
   };
 
   const handleFinish = (): void => {
-    const err = validateStep(6);
+    const err = validateStep(4);
     if (err) {
       setStepError(err);
       return;
@@ -527,21 +396,10 @@ export function WizardEtablissementPage(): React.JSX.Element {
           capacite: Number(s.capacite),
         })),
       ),
-      matieres: selectedClassesList.flatMap(({ key, classe, cycle }) =>
-        (matieres[key] ?? [])
-          .filter((m) => m.nom.trim())
-          .map((m) => ({
-            classe,
-            nom: m.nom.trim(),
-            coefficient: Number(m.coefficient),
-            est_domaine_competence: isJardinCycle(cycle)
-              ? true
-              : m.est_domaine_competence,
-          })),
-      ),
+      matieres: [],
     };
 
-    wizardMutation.mutate({ payload, notations: cycleNotation });
+    wizardMutation.mutate(payload);
   };
 
   if (loadingAnnees || loadingPeriodes || loadingCycles) {
@@ -679,8 +537,8 @@ export function WizardEtablissementPage(): React.JSX.Element {
           {step === 2 ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Les étapes suivantes (classes, salles, matières, notation) s&apos;adaptent
-                automatiquement aux cycles que vous sélectionnez.
+                Les étapes suivantes (classes, salles) s&apos;adaptent automatiquement aux
+                cycles que vous sélectionnez.
               </p>
               <div className="space-y-3">
                 {cyclesSorted.map((cycle) => {
@@ -874,188 +732,6 @@ export function WizardEtablissementPage(): React.JSX.Element {
             </div>
           ) : null}
 
-          {step === 5 ? (
-            <div className="space-y-8">
-              {selectedClassesByCycle.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Sélectionnez des classes à l&apos;étape précédente.
-                </p>
-              ) : (
-                selectedClassesByCycle.map(({ cycle, classes }) => (
-                  <section key={cycle}>
-                    <h3 className="mb-4 font-semibold">{displayCycleLabel(cycle)}</h3>
-                    <div className="space-y-6">
-                      {classes.map(({ key, classe }) => (
-                        <div key={key} className="rounded-lg border border-border p-4">
-                          <h4 className="mb-3 font-medium">{classe}</h4>
-                          <div className="space-y-2">
-                            {(matieres[key] ?? []).map((matiere) => (
-                              <div
-                                key={matiere.localId}
-                                className="flex flex-wrap items-end gap-2"
-                              >
-                                <div className="min-w-[140px] flex-1 space-y-1">
-                                  <Label>Matière</Label>
-                                  <Input
-                                    value={matiere.nom}
-                                    placeholder={
-                                      isJardinCycle(cycle) ? "Motricité" : "Français"
-                                    }
-                                    onChange={(e) =>
-                                      setMatieres((prev) => ({
-                                        ...prev,
-                                        [key]: (prev[key] ?? []).map((m) =>
-                                          m.localId === matiere.localId
-                                            ? { ...m, nom: e.target.value }
-                                            : m,
-                                        ),
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                <div className="w-24 space-y-1">
-                                  <Label>Coef.</Label>
-                                  <Input
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    value={matiere.coefficient}
-                                    onChange={(e) =>
-                                      setMatieres((prev) => ({
-                                        ...prev,
-                                        [key]: (prev[key] ?? []).map((m) =>
-                                          m.localId === matiere.localId
-                                            ? { ...m, coefficient: e.target.value }
-                                            : m,
-                                        ),
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                {isJardinCycle(cycle) ? (
-                                  <div className="flex h-9 items-center gap-2 px-1">
-                                    <Checkbox checked disabled />
-                                    <span className="text-sm text-muted-foreground">
-                                      Domaine de compétence
-                                    </span>
-                                  </div>
-                                ) : null}
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-9 w-9 shrink-0 px-0"
-                                  onClick={() =>
-                                    setMatieres((prev) => ({
-                                      ...prev,
-                                      [key]: (prev[key] ?? []).filter(
-                                        (m) => m.localId !== matiere.localId,
-                                      ),
-                                    }))
-                                  }
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="mt-3"
-                            onClick={() =>
-                              setMatieres((prev) => ({
-                                ...prev,
-                                [key]: [...(prev[key] ?? []), newMatiereDraft(cycle)],
-                              }))
-                            }
-                          >
-                            <Plus className="mr-1 h-4 w-4" />
-                            Ajouter une matière
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ))
-              )}
-            </div>
-          ) : null}
-
-          {step === 6 ? (
-            <div className="space-y-6">
-              <p className="text-sm text-muted-foreground">
-                La notation est définie par cycle. Les valeurs par défaut proviennent du
-                référentiel système ; vous pouvez les ajuster avant de terminer.
-              </p>
-              {cyclesSelectionnesOrdered.map((cycleName) => {
-                const draft = cycleNotation[cycleName];
-                if (!draft) return null;
-                const isQualitative = draft.type_evaluation === "qualitative";
-                return (
-                  <div key={cycleName} className="rounded-lg border border-border p-4">
-                    <h3 className="mb-3 font-medium">{displayCycleLabel(cycleName)}</h3>
-                    {isQualitative ? (
-                      <p className="text-sm text-muted-foreground">
-                        Évaluation qualitative — pas de notes chiffrées
-                      </p>
-                    ) : (
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <div className="space-y-2">
-                          <Label>Note maximale</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            step="0.01"
-                            value={draft.note_max}
-                            onChange={(e) =>
-                              setCycleNotation((prev) => ({
-                                ...prev,
-                                [cycleName]: { ...draft, note_max: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Note de passage</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={draft.note_passage}
-                            onChange={(e) =>
-                              setCycleNotation((prev) => ({
-                                ...prev,
-                                [cycleName]: { ...draft, note_passage: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Arrondi (décimales)</Label>
-                          <Select
-                            value={draft.arrondi}
-                            onChange={(e) =>
-                              setCycleNotation((prev) => ({
-                                ...prev,
-                                [cycleName]: { ...draft, arrondi: e.target.value },
-                              }))
-                            }
-                          >
-                            <option value="0">0 décimale</option>
-                            <option value="1">1 décimale</option>
-                            <option value="2">2 décimales</option>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
           {stepError ? (
             <p className="text-sm text-destructive" role="alert">
               {stepError}
@@ -1068,7 +744,7 @@ export function WizardEtablissementPage(): React.JSX.Element {
         <Button type="button" variant="outline" disabled={step === 0} onClick={goPrev}>
           Précédent
         </Button>
-        {step < 6 ? (
+        {step < 4 ? (
           <Button type="button" onClick={goNext}>
             Suivant
           </Button>

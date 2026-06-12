@@ -14,6 +14,8 @@ export const ETABLISSEMENT_API = {
   /** Alias legacy divisions physiques. */
   classesLegacy: "/divisions",
   matieres: "/matieres",
+  sequencesEvaluation: "/sequences-evaluation",
+  sequenceEvaluation: (id: string) => `/sequences-evaluation/${id}`,
   structure: "/etablissement/structure",
   wizard: "/wizard",
   valeursCycles: "/valeurs/cycles",

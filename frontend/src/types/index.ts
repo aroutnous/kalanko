@@ -280,6 +280,17 @@ export interface Periode {
   ordre: number;
 }
 
+export interface SequenceEvaluation {
+  id: string;
+  tenant_id: string;
+  cycle_id: string;
+  periode_id: string;
+  nom: string;
+  date_debut: string | null;
+  date_fin: string | null;
+  ordre: number;
+}
+
 export interface Matiere {
   id: string;
   tenant_id: string;

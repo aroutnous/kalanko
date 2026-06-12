@@ -137,13 +137,17 @@ export const router = createBrowserRouter([
               { id: "etablissement-periodes", path: "periodes", element: <PeriodesPage /> },
               { id: "etablissement-classes", path: "classes", element: <ClassesPage /> },
               { id: "etablissement-salles", path: "salles", element: <SallesPage /> },
-              { id: "etablissement-matieres", path: "matieres", element: <MatieresPage /> },
               {
                 id: "etablissement-niveaux-alias",
                 path: "niveaux",
                 element: <Navigate to="classes" replace />,
               },
             ],
+          },
+          {
+            id: "etablissement-matieres",
+            path: "etablissement/matieres",
+            element: <MatieresPage />,
           },
 
           {
