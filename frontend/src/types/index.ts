@@ -444,8 +444,9 @@ export interface SituationEleve {
 export interface NoteCreatePayload {
   eleve_id: string;
   matiere_id: string;
-  periode_id: string;
   classe_id: string;
+  periode_id?: string;
+  sequence_id?: string;
   valeur?: number;
   valeur_qualitative?: string;
   appreciation?: string;

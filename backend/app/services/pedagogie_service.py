@@ -593,8 +593,14 @@ class PedagogieService:
         self,
         eleve_id: uuid.UUID,
         periode_id: uuid.UUID | None = None,
+        sequence_id: uuid.UUID | None = None,
     ) -> list[NoteResponse]:
         self._get_eleve(eleve_id)
+        if periode_id is not None and sequence_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Fournir periode_id ou sequence_id, pas les deux",
+            )
         q = self.db.query(Note).filter(
             Note.tenant_id == self.tenant_id,
             Note.eleve_id == eleve_id,
@@ -602,6 +608,9 @@ class PedagogieService:
         if periode_id is not None:
             self._get_periode(periode_id)
             q = q.filter(Note.periode_id == periode_id)
+        if sequence_id is not None:
+            self._get_sequence(sequence_id)
+            q = q.filter(Note.sequence_id == sequence_id)
         notes = q.order_by(Note.created_at.desc()).all()
         return [NoteResponse.model_validate(n) for n in notes]
 

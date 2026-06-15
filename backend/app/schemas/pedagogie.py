@@ -27,15 +27,21 @@ class NoteCreate(BaseModel):
     def validate_periode_ou_sequence(self) -> "NoteCreate":
         if self.periode_id is None and self.sequence_id is None:
             raise ValueError("periode_id ou sequence_id requis")
+        if self.periode_id is not None and self.sequence_id is not None:
+            raise ValueError("Fournir periode_id ou sequence_id, pas les deux")
         return self
 
     @model_validator(mode="after")
     def validate_valeur_xor(self) -> "NoteCreate":
         has_valeur = self.valeur is not None
         has_qualitative = self.valeur_qualitative is not None
-        if has_valeur == has_qualitative:
+        if has_valeur and has_qualitative:
             raise ValueError(
-                "Fournir soit valeur (chiffrée) soit valeur_qualitative, pas les deux"
+                "Fournir soit valeur (note chiffrée), soit valeur_qualitative, pas les deux"
+            )
+        if not has_valeur and not has_qualitative:
+            raise ValueError(
+                "Fournir soit valeur (note chiffrée), soit valeur_qualitative"
             )
         return self
 

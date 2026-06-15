@@ -158,8 +158,13 @@ def get_historique_notes(
     db: DbSession,
     user: PedagogyReader,
     periode_id: uuid.UUID | None = Query(default=None),
+    sequence_id: uuid.UUID | None = Query(default=None),
 ) -> list[NoteResponse]:
-    return _service(db, user, request).get_historique_notes(eleve_id, periode_id)
+    return _service(db, user, request).get_historique_notes(
+        eleve_id,
+        periode_id,
+        sequence_id,
+    )
 
 
 @router.post(

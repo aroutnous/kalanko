@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMenuAccess } from "@/hooks/useMenuAccess";
@@ -7,8 +7,20 @@ import { MatieresTab } from "@/pages/etablissement/matieres/MatieresTab";
 import { NotationParCycleTab } from "@/pages/etablissement/matieres/NotationParCycleTab";
 import { SequencesTab } from "@/pages/etablissement/matieres/SequencesTab";
 
+const TAB_VALUES = ["matieres", "sequences", "notation"] as const;
+type MatieresTabValue = (typeof TAB_VALUES)[number];
+
+function resolveTab(raw: string | null): MatieresTabValue {
+  if (raw && TAB_VALUES.includes(raw as MatieresTabValue)) {
+    return raw as MatieresTabValue;
+  }
+  return "matieres";
+}
+
 export function MatieresPage(): React.JSX.Element {
   const { can } = useMenuAccess();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = resolveTab(searchParams.get("tab"));
 
   if (!can.etablissementConfigurer) {
     return <Navigate to={ROUTES.etablissementWizard} replace />;
@@ -23,7 +35,12 @@ export function MatieresPage(): React.JSX.Element {
         </p>
       </div>
 
-      <Tabs defaultValue="matieres">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          setSearchParams({ tab: value }, { replace: true });
+        }}
+      >
         <TabsList>
           <TabsTrigger value="matieres">Matières</TabsTrigger>
           <TabsTrigger value="sequences">Séquences d&apos;évaluation</TabsTrigger>

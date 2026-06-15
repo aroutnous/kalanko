@@ -17,6 +17,32 @@ export function formatStatutCompetence(value: string | null | undefined): string
   return STATUT_COMPETENCE_LABELS[value] ?? value;
 }
 
+/** Nom du cycle fondamental utilisant les séquences (compositions mensuelles). */
+export const CYCLE_1ER = "1er Cycle";
+
+export function usesSequenceForCycle(
+  cycle: { type_evaluation: string; nom: string } | null | undefined,
+): boolean {
+  return cycle?.type_evaluation === "chiffree" && cycle.nom === CYCLE_1ER;
+}
+
+export function usesPeriodeForCycle(
+  cycle: { type_evaluation: string; nom: string } | null | undefined,
+): boolean {
+  if (!cycle) return false;
+  if (cycle.type_evaluation === "qualitative") return true;
+  return !usesSequenceForCycle(cycle);
+}
+
+/** Valide une note chiffrée : 0 à noteMax, 2 décimales max. */
+export function isValidNoteChiffree(value: string, noteMax: number): boolean {
+  if (!/^\d+(\.\d{1,2})?$/.test(value.trim())) {
+    return false;
+  }
+  const n = Number(value);
+  return !Number.isNaN(n) && n >= 0 && n <= noteMax;
+}
+
 /** Formate une note ou moyenne (l'API peut renvoyer des Decimal en string). */
 export function formatDecimal(
   value: number | string | null | undefined,
