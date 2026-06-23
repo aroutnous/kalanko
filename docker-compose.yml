@@ -9,9 +9,9 @@ services:
     image: postgres:16-alpine
     container_name: kalanko_db
     environment:
-      POSTGRES_DB: kalanko
-      POSTGRES_USER: kalanko_user
-      POSTGRES_PASSWORD: kalanko_dev_password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
