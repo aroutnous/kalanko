@@ -56,7 +56,10 @@ services:
   # FRONTEND (à activer en Phase 1)
   # =====================
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=https://api.kalanko.tech
     container_name: kalanko_frontend
     ports:
       - "3000:3000"
