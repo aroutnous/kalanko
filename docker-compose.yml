@@ -12,8 +12,6 @@ services:
       POSTGRES_DB: kalanko
       POSTGRES_USER: kalanko_user
       POSTGRES_PASSWORD: kalanko_dev_password
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,8 +26,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: kalanko_redis
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -74,7 +70,7 @@ services:
     image: adminer:latest
     container_name: kalanko_adminer
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       - db
 
