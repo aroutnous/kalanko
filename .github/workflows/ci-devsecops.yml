@@ -131,14 +131,23 @@ jobs:
     needs: [deploy]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: OWASP ZAP full scan
-        uses: zaproxy/action-full-scan@v0.10.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target: https://kalanko.tech
-          allow_issue_writing: false
-          fail_action: false
-          cmd_options: '-a -J report_json.json -w report_md.md -r report_html.html'
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: OWASP ZAP Full Scan
+        run: |
+          docker pull ghcr.io/zaproxy/zaproxy:stable
+          docker run --rm \
+            -v $(pwd):/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-full-scan.py \
+            -t https://kalanko.tech \
+            -J report_json.json \
+            -w report_md.md \
+            -r report_html.html \
+            -a \
+            -I
+        continue-on-error: true
 
       - name: Upload ZAP report
         uses: actions/upload-artifact@v4
