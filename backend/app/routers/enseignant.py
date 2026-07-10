@@ -141,6 +141,16 @@ def affecter_matiere(
     return EnseignantMatiereResponse.model_validate(row)
 
 
+@router.get("/{enseignant_id}/matieres", response_model=list[uuid.UUID])
+def list_enseignant_matiere_ids(
+    enseignant_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user: EnseignantReader,
+) -> list[uuid.UUID]:
+    return _service(db, user, request).get_matiere_ids(enseignant_id)
+
+
 @router.delete(
     "/{enseignant_id}/matieres/{matiere_id}",
     status_code=status.HTTP_204_NO_CONTENT,

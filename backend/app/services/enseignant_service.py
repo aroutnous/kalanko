@@ -341,6 +341,18 @@ class EnseignantService:
         )
         self.db.commit()
 
+    def get_matiere_ids(self, enseignant_id: uuid.UUID) -> list[uuid.UUID]:
+        self._get_enseignant_or_404(enseignant_id)
+        rows = (
+            self.db.query(EnseignantMatiere.matiere_id)
+            .filter(
+                EnseignantMatiere.tenant_id == self.tenant_id,
+                EnseignantMatiere.enseignant_id == enseignant_id,
+            )
+            .all()
+        )
+        return [row[0] for row in rows]
+
     def get_matieres(self, enseignant_id: uuid.UUID) -> list[Matiere]:
         self._get_enseignant_or_404(enseignant_id)
         return (

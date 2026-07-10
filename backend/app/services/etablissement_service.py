@@ -616,7 +616,11 @@ class EtablissementService:
         self._audit("establishment.matiere.create", "matieres", matiere.id)
         return self._matiere_to_response(self._get_matiere_with_relations(matiere.id))
 
-    def list_matieres(self, classe_id: uuid.UUID | None = None) -> list[MatiereResponse]:
+    def list_matieres(
+        self,
+        classe_id: uuid.UUID | None = None,
+        nom: str | None = None,
+    ) -> list[MatiereResponse]:
         query = (
             self.db.query(Matiere)
             .options(
@@ -631,6 +635,8 @@ class EtablissementService:
         if classe_id is not None:
             self._get_classe(classe_id)
             query = query.filter(Matiere.classe_id == classe_id)
+        if nom is not None:
+            query = query.filter(Matiere.nom.ilike(nom.strip()))
         matieres = query.order_by(
             Cycle.ordre,
             Classe.ordre,
