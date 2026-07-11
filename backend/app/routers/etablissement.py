@@ -620,8 +620,13 @@ def list_matieres(
     classe_id: uuid.UUID | None = Query(default=None),
     niveau_id: uuid.UUID | None = Query(default=None),
     nom: str | None = Query(default=None),
+    enseignant_id: uuid.UUID | None = Query(default=None),
 ) -> list[MatiereResponse]:
-    return _service(db, user, request).list_matieres(classe_id or niveau_id, nom)
+    return _service(db, user, request).list_matieres(
+        classe_id or niveau_id,
+        nom,
+        enseignant_id,
+    )
 
 
 @router.get("/matieres/{matiere_id}", response_model=MatiereResponse)

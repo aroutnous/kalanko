@@ -91,11 +91,9 @@ class EnseignantService:
     def _matiere_names(self, enseignant_id: uuid.UUID) -> list[str]:
         rows = (
             self.db.query(Matiere.nom)
-            .join(EnseignantMatiere, EnseignantMatiere.matiere_id == Matiere.id)
             .filter(
-                EnseignantMatiere.tenant_id == self.tenant_id,
-                EnseignantMatiere.enseignant_id == enseignant_id,
                 Matiere.tenant_id == self.tenant_id,
+                Matiere.enseignant_principal_id == enseignant_id,
             )
             .distinct()
             .order_by(Matiere.nom)

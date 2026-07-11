@@ -620,6 +620,7 @@ class EtablissementService:
         self,
         classe_id: uuid.UUID | None = None,
         nom: str | None = None,
+        enseignant_id: uuid.UUID | None = None,
     ) -> list[MatiereResponse]:
         query = (
             self.db.query(Matiere)
@@ -637,6 +638,8 @@ class EtablissementService:
             query = query.filter(Matiere.classe_id == classe_id)
         if nom is not None:
             query = query.filter(Matiere.nom.ilike(nom.strip()))
+        if enseignant_id is not None:
+            query = query.filter(Matiere.enseignant_principal_id == enseignant_id)
         matieres = query.order_by(
             Cycle.ordre,
             Classe.ordre,
