@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,6 +47,8 @@ interface ClasseSelectionParams {
   enseignant_assistant_id: string;
   matiereId?: string;
 }
+
+const EMPTY_MATIERES: Matiere[] = [];
 
 interface MatiereFormModalProps {
   open: boolean;
@@ -142,6 +144,58 @@ export function MatiereFormModal({
   const [selectionOrder, setSelectionOrder] = useState<string[]>([]);
   const [selections, setSelections] = useState<Record<string, ClasseSelectionParams>>({});
   const [checkedSalles, setCheckedSalles] = useState<Record<string, boolean>>({});
+  const formInitializedRef = useRef(false);
+
+  const resetCreateForm = (): void => {
+    setNom("");
+    setAbreviation("");
+    setEstObligatoire(true);
+    setEstDomaineCompetence(false);
+    setSelectionOrder([]);
+    setSelections({});
+    setCheckedSalles({});
+  };
+
+  const populateEditForm = (matieres: Matiere[], rows: SalleRow[]): void => {
+    const first = matieres[0];
+    setNom(first.nom);
+    setAbreviation("");
+    setEstObligatoire(first.est_obligatoire);
+    setEstDomaineCompetence(first.est_domaine_competence);
+
+    const nextSelections: Record<string, ClasseSelectionParams> = {};
+    const nextChecked: Record<string, boolean> = {};
+    const order: string[] = [];
+
+    const sortedExisting = [...matieres].sort((a, b) => a.ordre - b.ordre);
+    for (const matiere of sortedExisting) {
+      const row = rows.find((r) => r.classeId === matiere.classe_id);
+      if (!row) continue;
+
+      order.push(matiere.classe_id);
+      nextSelections[matiere.classe_id] = {
+        classeId: matiere.classe_id,
+        cycle: row.cycle,
+        label: row.label,
+        salleIds: rows
+          .filter((r) => r.classeId === matiere.classe_id)
+          .map((r) => r.salleId),
+        coefficient: String(matiere.coefficient),
+        note_max: matiere.note_max != null ? String(matiere.note_max) : "",
+        enseignant_principal_id: matiere.enseignant_principal_id ?? "",
+        enseignant_assistant_id: matiere.enseignant_assistant_id ?? "",
+        matiereId: matiere.id,
+      };
+
+      for (const salleRow of rows.filter((r) => r.classeId === matiere.classe_id)) {
+        nextChecked[salleRow.salleId] = true;
+      }
+    }
+
+    setSelectionOrder(order);
+    setSelections(nextSelections);
+    setCheckedSalles(nextChecked);
+  };
 
   const { data: structure, isLoading: loadingStructure } = useQuery({
     queryKey: ["etablissement-structure"],
@@ -161,7 +215,7 @@ export function MatiereFormModal({
     enabled: open,
   });
 
-  const { data: existingMatieres = [], isLoading: loadingExisting } = useQuery({
+  const { data: existingMatieres = EMPTY_MATIERES, isLoading: loadingExisting } = useQuery({
     queryKey: ["matieres", "by-nom", editNom],
     queryFn: async () => {
       const { data } = await api.get<Matiere[]>(ETABLISSEMENT_API.matieres, {
@@ -216,60 +270,31 @@ export function MatiereFormModal({
   );
 
   useEffect(() => {
-    if (!open) return;
-
-    if (isEdit && existingMatieres.length > 0) {
-      const first = existingMatieres[0];
-      setNom(first.nom);
-      setAbreviation("");
-      setEstObligatoire(first.est_obligatoire);
-      setEstDomaineCompetence(first.est_domaine_competence);
-
-      const nextSelections: Record<string, ClasseSelectionParams> = {};
-      const nextChecked: Record<string, boolean> = {};
-      const order: string[] = [];
-
-      const sortedExisting = [...existingMatieres].sort((a, b) => a.ordre - b.ordre);
-      for (const matiere of sortedExisting) {
-        const row = salleRows.find((r) => r.classeId === matiere.classe_id);
-        if (!row) continue;
-
-        order.push(matiere.classe_id);
-        nextSelections[matiere.classe_id] = {
-          classeId: matiere.classe_id,
-          cycle: row.cycle,
-          label: row.label,
-          salleIds: salleRows
-            .filter((r) => r.classeId === matiere.classe_id)
-            .map((r) => r.salleId),
-          coefficient: String(matiere.coefficient),
-          note_max: matiere.note_max != null ? String(matiere.note_max) : "",
-          enseignant_principal_id: matiere.enseignant_principal_id ?? "",
-          enseignant_assistant_id: matiere.enseignant_assistant_id ?? "",
-          matiereId: matiere.id,
-        };
-
-        for (const salleRow of salleRows.filter((r) => r.classeId === matiere.classe_id)) {
-          nextChecked[salleRow.salleId] = true;
-        }
-      }
-
-      setSelectionOrder(order);
-      setSelections(nextSelections);
-      setCheckedSalles(nextChecked);
+    if (!open) {
+      formInitializedRef.current = false;
       return;
     }
 
+    if (formInitializedRef.current) return;
+
     if (!isEdit) {
-      setNom("");
-      setAbreviation("");
-      setEstObligatoire(true);
-      setEstDomaineCompetence(false);
-      setSelectionOrder([]);
-      setSelections({});
-      setCheckedSalles({});
+      resetCreateForm();
+      formInitializedRef.current = true;
+      return;
     }
-  }, [open, isEdit, existingMatieres, salleRows]);
+
+    if (loadingExisting || salleRows.length === 0) return;
+    if (existingMatieres.length === 0) return;
+
+    populateEditForm(existingMatieres, salleRows);
+    formInitializedRef.current = true;
+  }, [
+    open,
+    isEdit,
+    loadingExisting,
+    existingMatieres,
+    salleRows,
+  ]);
 
   const toggleSalle = (row: SalleRow, checked: boolean): void => {
     const classeId = row.classeId;
@@ -483,13 +508,19 @@ export function MatiereFormModal({
                               key={row.salleId}
                               className="rounded-md border border-border/80 p-3"
                             >
-                              <label className="flex items-center gap-2 text-sm font-medium">
+                              <div className="flex items-center gap-2 text-sm font-medium">
                                 <Checkbox
+                                  id={`matiere-salle-${row.salleId}`}
                                   checked={isChecked}
-                                  onChange={(e) => toggleSalle(row, e.target.checked)}
+                                  onCheckedChange={(checked) => toggleSalle(row, checked)}
                                 />
-                                {row.label}
-                              </label>
+                                <Label
+                                  htmlFor={`matiere-salle-${row.salleId}`}
+                                  className="cursor-pointer font-medium"
+                                >
+                                  {row.label}
+                                </Label>
+                              </div>
 
                               {isChecked && params && isFirstInClasse ? (
                                 <div className="mt-3 grid gap-3 border-t border-border/60 pt-3 sm:grid-cols-2">
