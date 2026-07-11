@@ -120,6 +120,8 @@ jobs:
             cd /opt/kalanko/app
             git pull origin main
             docker compose up -d --build
+            sudo cp /opt/kalanko/app/monitoring/caddyfile-prod /etc/caddy/Caddyfile
+            caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
             docker compose exec -T backend alembic upgrade head
 
   # =====================
