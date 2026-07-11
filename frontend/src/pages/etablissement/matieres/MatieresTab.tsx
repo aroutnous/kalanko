@@ -21,6 +21,16 @@ interface MatiereGroup {
   matieres: Matiere[];
 }
 
+function getGroupEnseignants(group: MatiereGroup): string[] {
+  const names = new Set<string>();
+  for (const matiere of group.matieres) {
+    if (matiere.enseignant_principal_nom) {
+      names.add(matiere.enseignant_principal_nom);
+    }
+  }
+  return [...names].sort((a, b) => a.localeCompare(b, "fr"));
+}
+
 export function MatieresTab(): React.JSX.Element {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
@@ -129,6 +139,7 @@ export function MatieresTab(): React.JSX.Element {
           {filtered.map((group) => {
             const first = group.matieres[0];
             const hasDomaine = group.matieres.some((m) => m.est_domaine_competence);
+            const enseignants = getGroupEnseignants(group);
 
             return (
               <Card key={group.nom} className="flex flex-col">
@@ -159,6 +170,12 @@ export function MatieresTab(): React.JSX.Element {
                       </Badge>
                     ))}
                   </div>
+                  {enseignants.length > 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Enseignant{enseignants.length > 1 ? "s" : ""} :{" "}
+                      {enseignants.join(", ")}
+                    </p>
+                  ) : null}
                   {canConfigure ? (
                     <div className="flex gap-2">
                       <Button

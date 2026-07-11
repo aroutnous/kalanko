@@ -272,15 +272,43 @@ section_caddy() {
 
   cat > /etc/caddy/Caddyfile <<EOF
 # Kalanko — reverse proxy (géré par provision.sh)
-# Frontend React (nginx dans Docker, port hôte 80)
+# Frontend React (nginx dans Docker, port hôte 3000)
 ${DOMAIN} {
     encode gzip zstd
-    reverse_proxy localhost:80
+
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://${API_DOMAIN}; frame-ancestors 'none';"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        Cross-Origin-Resource-Policy "same-origin"
+        Cross-Origin-Opener-Policy "same-origin"
+        -Server
+        -Via
+    }
+
+    @assets_slash {
+        path /assets /assets/
+    }
+    respond @assets_slash 404
+
+    reverse_proxy localhost:3000
 }
 
 # API FastAPI (Docker, port hôte 8000)
 ${API_DOMAIN} {
     encode gzip zstd
+
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Cross-Origin-Resource-Policy "same-origin"
+        -Server
+        -Via
+    }
+
     reverse_proxy localhost:8000
 }
 

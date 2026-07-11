@@ -401,6 +401,7 @@ export function MatiereFormModal({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["matieres"] });
       void queryClient.invalidateQueries({ queryKey: ["etablissement-structure"] });
+      void queryClient.invalidateQueries({ queryKey: ["enseignants"] });
       toast(isEdit ? "Matière modifiée" : "Matière créée");
       onClose();
     },

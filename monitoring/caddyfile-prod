@@ -1,0 +1,43 @@
+# Kalanko — Caddyfile production (référence / déploiement manuel)
+# Copier vers /etc/caddy/Caddyfile puis : caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+
+kalanko.tech {
+    encode gzip zstd
+
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.kalanko.tech; frame-ancestors 'none';"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        Cross-Origin-Resource-Policy "same-origin"
+        Cross-Origin-Opener-Policy "same-origin"
+        -Server
+        -Via
+    }
+
+    @assets_slash {
+        path /assets /assets/
+    }
+    respond @assets_slash 404
+
+    reverse_proxy localhost:3000
+}
+
+api.kalanko.tech {
+    encode gzip zstd
+
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Cross-Origin-Resource-Policy "same-origin"
+        -Server
+        -Via
+    }
+
+    reverse_proxy localhost:8000
+}
+
+# Grafana (monitoring — à activer manuellement)
+# grafana.kalanko.tech → localhost:3001 (à activer manuellement)

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, GraduationCap, Pencil, Plus, Trash2 } from "lucide-react";
+import { GraduationCap, Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
@@ -11,10 +11,7 @@ import {
   INITIAL_ENSEIGNANT_FORM,
   type EnseignantFormValues,
 } from "@/components/enseignants/EnseignantForm";
-import {
-  EnseignantMatieresField,
-  syncEnseignantMatieres,
-} from "@/components/enseignants/EnseignantMatieresField";
+import { EnseignantMatieresField } from "@/components/enseignants/EnseignantMatieresField";
 import { FormModal } from "@/components/etablissement/FormModal";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -88,8 +85,6 @@ export function EnseignantsPage(): React.JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<Enseignant | null>(null);
   const [affectMode, setAffectMode] = useState<AffectationMode | null>(null);
   const [affectTarget, setAffectTarget] = useState<Enseignant | null>(null);
-  const [selectedMatiereIds, setSelectedMatiereIds] = useState<string[]>([]);
-  const [initialMatiereIds, setInitialMatiereIds] = useState<string[]>([]);
 
   const { data: enseignants = [], isLoading } = useQuery({
     queryKey: ["enseignants", statutFilter],
@@ -110,9 +105,6 @@ export function EnseignantsPage(): React.JSX.Element {
         ENSEIGNANTS_API.list,
         toPayload(values, false),
       );
-      if (selectedMatiereIds.length > 0) {
-        await syncEnseignantMatieres(data.id, selectedMatiereIds, []);
-      }
       return data;
     },
     onSuccess: () => {
@@ -120,8 +112,6 @@ export function EnseignantsPage(): React.JSX.Element {
       toast("Enseignant créé");
       setFormOpen(false);
       setForm(INITIAL_ENSEIGNANT_FORM);
-      setSelectedMatiereIds([]);
-      setInitialMatiereIds([]);
     },
     onError: (err) => toast(getErrorMessage(err), "error"),
   });
@@ -138,16 +128,13 @@ export function EnseignantsPage(): React.JSX.Element {
         ENSEIGNANTS_API.detail(id),
         toPayload(values, true),
       );
-      await syncEnseignantMatieres(id, selectedMatiereIds, initialMatiereIds);
       return data;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["enseignants"] });
-      void queryClient.invalidateQueries({ queryKey: ["enseignant-matieres"] });
+      void queryClient.invalidateQueries({ queryKey: ["matieres"] });
       toast("Enseignant modifié");
       setEditTarget(null);
-      setSelectedMatiereIds([]);
-      setInitialMatiereIds([]);
     },
     onError: (err) => toast(getErrorMessage(err), "error"),
   });
@@ -166,22 +153,12 @@ export function EnseignantsPage(): React.JSX.Element {
 
   const openCreate = (): void => {
     setForm(INITIAL_ENSEIGNANT_FORM);
-    setSelectedMatiereIds([]);
-    setInitialMatiereIds([]);
     setFormOpen(true);
   };
 
-  const openEdit = async (e: Enseignant): Promise<void> => {
+  const openEdit = (e: Enseignant): void => {
     setEditTarget(e);
     setForm(toFormValues(e));
-    try {
-      const { data } = await api.get<string[]>(ENSEIGNANTS_API.matieres(e.id));
-      setSelectedMatiereIds(data);
-      setInitialMatiereIds(data);
-    } catch {
-      setSelectedMatiereIds([]);
-      setInitialMatiereIds([]);
-    }
   };
 
   const columns: DataTableColumn<Enseignant>[] = [
@@ -226,17 +203,6 @@ export function EnseignantsPage(): React.JSX.Element {
                   title="Modifier"
                 >
                   <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setAffectTarget(r);
-                    setAffectMode("matiere");
-                  }}
-                  title="Affecter matière"
-                >
-                  <BookOpen className="h-4 w-4" />
                 </Button>
                 <Button
                   size="sm"
@@ -315,11 +281,7 @@ export function EnseignantsPage(): React.JSX.Element {
       <FormModal
         open={formOpen}
         title="Nouvel enseignant"
-        onClose={() => {
-          setFormOpen(false);
-          setSelectedMatiereIds([]);
-          setInitialMatiereIds([]);
-        }}
+        onClose={() => setFormOpen(false)}
         onSubmit={() => createMutation.mutate(form)}
         loading={createMutation.isPending}
       >
@@ -327,21 +289,12 @@ export function EnseignantsPage(): React.JSX.Element {
           values={form}
           onChange={(field, value) => setForm((p) => ({ ...p, [field]: value }))}
         />
-        <EnseignantMatieresField
-          selectedIds={selectedMatiereIds}
-          onChange={setSelectedMatiereIds}
-          disabled={createMutation.isPending}
-        />
       </FormModal>
 
       <FormModal
         open={editTarget !== null}
         title="Modifier l'enseignant"
-        onClose={() => {
-          setEditTarget(null);
-          setSelectedMatiereIds([]);
-          setInitialMatiereIds([]);
-        }}
+        onClose={() => setEditTarget(null)}
         onSubmit={() => {
           if (editTarget) updateMutation.mutate({ id: editTarget.id, values: form });
         }}
@@ -352,11 +305,9 @@ export function EnseignantsPage(): React.JSX.Element {
           onChange={(field, value) => setForm((p) => ({ ...p, [field]: value }))}
           showStatut
         />
-        <EnseignantMatieresField
-          selectedIds={selectedMatiereIds}
-          onChange={setSelectedMatiereIds}
-          disabled={updateMutation.isPending}
-        />
+        {editTarget ? (
+          <EnseignantMatieresField enseignantId={editTarget.id} />
+        ) : null}
       </FormModal>
 
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
