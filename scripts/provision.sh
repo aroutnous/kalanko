@@ -368,6 +368,9 @@ section_project_layout() {
 # Origines CORS autorisées (séparées par des virgules)
 # ALLOWED_ORIGINS=https://kalanko.tech,https://www.kalanko.tech
 
+# Désactiver Swagger/OpenAPI en production
+DEBUG=false
+
 # URL API injectée au build du frontend (Vite)
 # VITE_API_URL=https://api.kalanko.tech
 
