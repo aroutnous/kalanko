@@ -461,7 +461,7 @@ Tous les endpoints : `platform.admin`
 
 ## 8. Pipeline CI/CD
 
-Fichier : `.github/workflows/ci-devsecops.yml`
+Fichier : `.github/workflows/ci-cd-devsecops.yml`
 
 | Étape | Outil | Statut |
 |-------|-------|--------|
