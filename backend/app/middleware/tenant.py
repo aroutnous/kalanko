@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Chemins publics sans contexte tenant (pas de JWT requis)
 # Les entrées se terminant par « / » autorisent tout sous-chemin (ex. /auth/tenant/{slug})
+# /docs, /redoc, /openapi.json : jamais publics — bloqués en 404 si DEBUG=false
 PUBLIC_PATHS: frozenset[str] = frozenset({
     "/health",
     "/auth/login",
@@ -22,6 +23,12 @@ PUBLIC_PATHS: frozenset[str] = frozenset({
     "/auth/reset-password/request",
     "/auth/reset-password/confirm",
     "/finance/webhook/mobile-money",
+})
+
+DOCS_PATHS: frozenset[str] = frozenset({
+    "/docs",
+    "/redoc",
+    "/openapi.json",
 })
 
 
@@ -47,6 +54,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Response]
     ) -> Response:
         path = request.url.path.rstrip("/") or "/"
+
+        if not settings.debug and path in DOCS_PATHS:
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
 
         if _is_public_path(path) or request.method == "OPTIONS":
             return await call_next(request)
