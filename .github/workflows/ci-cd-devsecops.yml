@@ -102,12 +102,38 @@ jobs:
           format: table
 
   # =====================
-  # ÉTAPE 5 — DEPLOY PRODUCTION (étape 7 : migrations Alembic dans le script)
+  # ÉTAPE 5 — IaC (Checkov)
   # =====================
-  deploy:
-    name: "5 · Deploy production VPS"
+  iac-scan:
+    name: "5 · IaC — Checkov (Docker Compose + Terraform)"
     runs-on: ubuntu-latest
     needs: [secrets-scan, sast, sca, container-scan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov sur Docker Compose
+        uses: bridgecrewio/checkov-action@master
+        with:
+          file: docker-compose.yml
+          framework: dockerfile,secrets
+          soft_fail: true
+          output_format: cli
+
+      - name: Run Checkov sur Terraform (annexe)
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infra/
+          framework: terraform
+          soft_fail: true
+          output_format: cli
+
+  # =====================
+  # ÉTAPE 6 — DEPLOY PRODUCTION (migrations Alembic dans le script)
+  # =====================
+  deploy:
+    name: "6 · Deploy production VPS"
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, sast, sca, container-scan, iac-scan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Deploy via SSH
@@ -125,10 +151,10 @@ jobs:
             docker compose exec -T backend alembic upgrade head
 
   # =====================
-  # ÉTAPE 6 — DAST
+  # ÉTAPE 7 — DAST
   # =====================
   dast:
-    name: "6 · DAST — OWASP ZAP"
+    name: "7 · DAST — OWASP ZAP"
     runs-on: ubuntu-latest
     needs: [deploy]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -161,7 +187,3 @@ jobs:
             report_json.json
             report_md.md
           retention-days: 30
-
-  # =====================
-  # ÉTAPE 7 — POST-DEPLOY (activé via job deploy, étape 5)
-  # =====================
