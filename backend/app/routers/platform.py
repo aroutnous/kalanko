@@ -7,9 +7,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, status
 
 from app.core.database import DbSession
-from app.core.security import require_permission
+from app.core.security import require_platform_owner
 from app.models.auth import Utilisateur
-from app.models.enums import Permission, StatutTenant
+from app.models.enums import StatutTenant
 from app.schemas.platform import (
     AbonnementChangePlan,
     AbonnementCreate,
@@ -46,8 +46,8 @@ from app.services.valeur_systeme_service import ValeurSystemeService
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
-PlatformAdmin = Annotated[
-    Utilisateur, Depends(require_permission(Permission.PLATFORM_ADMIN.value))
+PlatformOwner = Annotated[
+    Utilisateur, Depends(require_platform_owner)
 ]
 
 
@@ -72,7 +72,7 @@ def _service(db: DbSession, user: Utilisateur, request: Request) -> PlatformServ
 def get_stats_plateforme(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> PlatformStatsResponse:
     return _service(db, user, request).get_stats_plateforme()
 
@@ -81,7 +81,7 @@ def get_stats_plateforme(
 def get_dashboard(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> DashboardStatsResponse:
     return _service(db, user, request).get_dashboard_stats()
 
@@ -90,7 +90,7 @@ def get_dashboard(
 def get_statistiques(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> StatistiquesPlateformeResponse:
     return _service(db, user, request).get_statistiques_plateforme()
 
@@ -99,7 +99,7 @@ def get_statistiques(
 def list_tenants(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
     statut: StatutTenant | None = Query(default=None),
 ) -> list[TenantResponse]:
     return _service(db, user, request).get_tous_tenants(statut)
@@ -114,7 +114,7 @@ def creer_tenant(
     body: TenantCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> TenantCreateResponse:
     return _service(db, user, request).creer_tenant(body)
 
@@ -125,7 +125,7 @@ def modifier_tenant(
     body: TenantUpdate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> TenantResponse:
     return _service(db, user, request).modifier_tenant(tenant_id, body)
 
@@ -135,7 +135,7 @@ def supprimer_tenant(
     tenant_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> None:
     _service(db, user, request).supprimer_tenant(tenant_id)
 
@@ -145,7 +145,7 @@ def suspendre_tenant(
     tenant_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> TenantResponse:
     return _service(db, user, request).suspendre_tenant(tenant_id)
 
@@ -155,7 +155,7 @@ def activer_tenant(
     tenant_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> TenantResponse:
     return _service(db, user, request).activer_tenant(tenant_id)
 
@@ -164,7 +164,7 @@ def activer_tenant(
 def list_plans(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> list[PlanResponse]:
     return _service(db, user, request).get_plans()
 
@@ -178,7 +178,7 @@ def creer_plan(
     body: PlanCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> PlanResponse:
     return _service(db, user, request).creer_plan(body)
 
@@ -189,7 +189,7 @@ def modifier_plan(
     body: PlanUpdate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> PlanResponse:
     return _service(db, user, request).modifier_plan(plan_id, body)
 
@@ -199,7 +199,7 @@ def supprimer_plan(
     plan_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> None:
     _service(db, user, request).supprimer_plan(plan_id)
 
@@ -208,7 +208,7 @@ def supprimer_plan(
 def list_abonnements_detail(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> list[AbonnementDetailResponse]:
     return _service(db, user, request).get_abonnements_detail()
 
@@ -222,7 +222,7 @@ def creer_abonnement(
     body: AbonnementCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> AbonnementResponse:
     return _service(db, user, request).creer_abonnement(body)
 
@@ -233,7 +233,7 @@ def renouveler_abonnement(
     body: AbonnementRenouveler,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> AbonnementResponse:
     return _service(db, user, request).renouveler_abonnement(abonnement_id, body)
 
@@ -247,7 +247,7 @@ def changer_plan_abonnement(
     body: AbonnementChangePlan,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> AbonnementResponse:
     return _service(db, user, request).changer_plan(abonnement_id, body)
 
@@ -257,7 +257,7 @@ def resilier_abonnement(
     abonnement_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> AbonnementResponse:
     return _service(db, user, request).resilier_abonnement(abonnement_id)
 
@@ -266,7 +266,7 @@ def resilier_abonnement(
 def get_revenus_par_mois(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
     annee: int = Query(default_factory=lambda: date.today().year, ge=2000, le=2100),
 ) -> RevenusParMoisResponse:
     return _service(db, user, request).get_revenus_par_mois(annee)
@@ -276,7 +276,7 @@ def get_revenus_par_mois(
 def list_factures_detail(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
     tenant_id: uuid.UUID | None = Query(default=None),
 ) -> list[FactureDetailResponse]:
     return _service(db, user, request).get_factures_detail(tenant_id)
@@ -291,7 +291,7 @@ def generer_facture(
     body: FactureCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> FactureDetailResponse:
     return _service(db, user, request).generer_facture(body)
 
@@ -301,7 +301,7 @@ def marquer_facture_payee(
     facture_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> FactureDetailResponse:
     return _service(db, user, request).marquer_facture_payee(facture_id)
 
@@ -311,7 +311,7 @@ def envoyer_notification_tous(
     body: NotificationCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> dict[str, str]:
     return _service(db, user, request).envoyer_notification_tous(body)
 
@@ -325,7 +325,7 @@ def envoyer_notification_tenant(
     body: NotificationCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> dict[str, str]:
     return _service(db, user, request).envoyer_notification_tenant(tenant_id, body)
 
@@ -334,7 +334,7 @@ def envoyer_notification_tenant(
 def list_notifications(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
     tenant_id: uuid.UUID | None = Query(default=None),
 ) -> list[NotificationDetailResponse]:
     return _service(db, user, request).get_notifications(tenant_id)
@@ -345,7 +345,7 @@ def envoyer_notification(
     body: NotificationPlateformeCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> dict[str, str]:
     return _service(db, user, request).envoyer_notification(body)
 
@@ -354,7 +354,7 @@ def envoyer_notification(
 def get_audit_logs_global(
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
     date_debut: date | None = Query(default=None),
     date_fin: date | None = Query(default=None),
     action: str | None = Query(default=None),
@@ -380,7 +380,7 @@ def list_utilisateurs_tenant(
     tenant_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> list[UtilisateurTenantResponse]:
     return _service(db, user, request).get_utilisateurs_tenant(tenant_id)
 
@@ -395,7 +395,7 @@ def creer_utilisateur_tenant(
     body: UtilisateurTenantCreate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> UtilisateurTenantResponse:
     return _service(db, user, request).creer_utilisateur_tenant(tenant_id, body)
 
@@ -410,7 +410,7 @@ def modifier_utilisateur_tenant(
     body: UtilisateurTenantUpdate,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> UtilisateurTenantResponse:
     return _service(db, user, request).modifier_utilisateur_tenant(
         tenant_id, user_id, body
@@ -426,7 +426,7 @@ def supprimer_utilisateur_tenant(
     user_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> None:
     _service(db, user, request).supprimer_utilisateur(tenant_id, user_id)
 
@@ -440,7 +440,7 @@ def reset_password_utilisateur_tenant(
     user_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> ResetPasswordResponse:
     mot_de_passe = _service(db, user, request).reset_password_utilisateur(
         tenant_id, user_id
@@ -451,7 +451,7 @@ def reset_password_utilisateur_tenant(
 @router.get("/valeurs-systeme", response_model=list[ValeurSystemeResponse])
 def list_valeurs_systeme(
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
     categorie: str | None = Query(default=None),
 ) -> list[ValeurSystemeResponse]:
     rows = ValeurSystemeService(db).list_by_categorie(categorie)
@@ -466,7 +466,7 @@ def list_valeurs_systeme(
 def creer_valeur_systeme(
     body: ValeurSystemeCreate,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> ValeurSystemeResponse:
     row = ValeurSystemeService(db).creer_valeur(
         body.categorie,
@@ -482,7 +482,7 @@ def modifier_valeur_systeme(
     valeur_id: uuid.UUID,
     body: ValeurSystemeUpdate,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> ValeurSystemeResponse:
     row = ValeurSystemeService(db).update_valeur(
         valeur_id,
@@ -498,6 +498,6 @@ def modifier_valeur_systeme(
 def desactiver_valeur_systeme(
     valeur_id: uuid.UUID,
     db: DbSession,
-    user: PlatformAdmin,
+    user: PlatformOwner,
 ) -> None:
     ValeurSystemeService(db).desactiver_valeur(valeur_id)

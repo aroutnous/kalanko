@@ -17,17 +17,25 @@ async def _platform_owner_headers(
     db_session,
     unique_ip_headers: dict[str, str],
 ) -> dict[str, str]:
-    tenant = Tenant(
-        nom="Plateforme KALANKO",
-        slug=f"kalanko-platform-{uuid.uuid4().hex[:8]}",
-        statut=StatutTenant.ACTIF,
-    )
-    db_session.add(tenant)
-    db_session.flush()
+    from app.core.security import PLATFORM_TENANT_ID
+
+    tenant = db_session.get(Tenant, PLATFORM_TENANT_ID)
+    if tenant is None:
+        tenant = Tenant(
+            id=PLATFORM_TENANT_ID,
+            nom="Plateforme KALANKO",
+            slug=f"kalanko-platform-{uuid.uuid4().hex[:8]}",
+            statut=StatutTenant.ACTIF,
+        )
+        db_session.add(tenant)
+        db_session.flush()
+    else:
+        tenant.statut = StatutTenant.ACTIF
+        db_session.flush()
 
     email = f"owner-{uuid.uuid4().hex[:8]}@kalanko.ml"
     owner = Utilisateur(
-        tenant_id=tenant.id,
+        tenant_id=PLATFORM_TENANT_ID,
         nom="Owner",
         prenom="Platform",
         email=email,
@@ -429,3 +437,70 @@ async def test_acces_refuse_non_platform_owner(
 ) -> None:
     response = await async_client.get("/platform/stats", headers=auth_headers)
     assert response.status_code == 403
+    assert response.json()["detail"] == "Accès réservé au Platform Owner"
+
+
+@pytest.mark.asyncio
+async def test_platform_tenants_refuse_token_tenant(
+    async_client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """Un token tenant (directeur/promoteur) ne doit pas lister les tenants."""
+    response = await async_client.get("/platform/tenants", headers=auth_headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Accès réservé au Platform Owner"
+
+
+@pytest.mark.asyncio
+async def test_platform_tenants_accepte_platform_owner(
+    async_client: AsyncClient,
+    platform_headers: dict[str, str],
+) -> None:
+    response = await async_client.get("/platform/tenants", headers=platform_headers)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+@pytest.mark.asyncio
+async def test_platform_tenants_refuse_promoteur(
+    async_client: AsyncClient,
+    db_session,
+    unique_ip_headers: dict[str, str],
+) -> None:
+    """Régression pentest : le bypass * du promoteur ne doit pas ouvrir /platform/*."""
+    tenant = Tenant(
+        nom="École Promoteur",
+        slug=f"ecole-promoteur-{uuid.uuid4().hex[:8]}",
+        statut=StatutTenant.ACTIF,
+    )
+    db_session.add(tenant)
+    db_session.flush()
+
+    email = f"promoteur-{uuid.uuid4().hex[:8]}@ecole.ml"
+    promoteur = Utilisateur(
+        tenant_id=tenant.id,
+        nom="Keita",
+        prenom="Awa",
+        email=email,
+        mot_de_passe_hash=hash_password(TEST_PASSWORD),
+        role=RoleUtilisateur.PROMOTEUR,
+        statut=StatutUtilisateur.ACTIF,
+    )
+    db_session.add(promoteur)
+    db_session.flush()
+
+    login = await async_client.post(
+        "/auth/login",
+        json={
+            "email": email,
+            "password": TEST_PASSWORD,
+            "tenant_slug": tenant.slug,
+        },
+        headers=unique_ip_headers,
+    )
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    response = await async_client.get("/platform/tenants", headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Accès réservé au Platform Owner"

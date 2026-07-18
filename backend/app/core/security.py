@@ -17,8 +17,11 @@ from app.core.config import settings
 from app.core.database import DbSession
 from app.models.auth import Session as UserSession
 from app.models.auth import Utilisateur
-from app.models.enums import StatutUtilisateur
+from app.models.enums import RoleUtilisateur, StatutUtilisateur
 from app.services.permissions import PermissionService
+
+# Tenant technique réservé au platform_owner (isolation stricte des routes /platform/*)
+PLATFORM_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
 # cost=12 conforme aux règles projet (bcrypt)
 pwd_context = CryptContext(
@@ -160,6 +163,25 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[Utilisateur, Depends(get_current_user)]
+
+
+async def require_platform_owner(
+    current_user: Annotated[Utilisateur, Depends(get_current_user)],
+) -> Utilisateur:
+    """
+    Accès strict aux routes /platform/* : rôle platform_owner + tenant plateforme.
+
+    Refuse tout token tenant (promoteur, directeur, etc.), même avec permission *.
+    """
+    if (
+        current_user.role != RoleUtilisateur.PLATFORM_OWNER
+        or current_user.tenant_id != PLATFORM_TENANT_ID
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé au Platform Owner",
+        )
+    return current_user
 
 
 def require_permission(permission: str) -> Callable[..., Any]:
