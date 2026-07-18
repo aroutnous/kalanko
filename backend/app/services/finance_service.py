@@ -483,13 +483,7 @@ class FinanceService:
         signature: str | None,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
-        """Callback opérateur Mobile Money — validation HMAC puis création paiement."""
-        if not self._verifier_signature_webhook(raw_body, signature):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Signature webhook invalide",
-            )
-
+        """Callback opérateur Mobile Money — signature déjà validée par le router."""
         from app.schemas.finance import MobileMoneyWebhookPayload
 
         data = MobileMoneyWebhookPayload.model_validate(payload)
@@ -555,15 +549,24 @@ class FinanceService:
         }
 
     @staticmethod
-    def _verifier_signature_webhook(raw_body: bytes, signature: str | None) -> bool:
-        if not signature:
+    def verifier_signature_webhook(raw_body: bytes, signature: str | None) -> bool:
+        """Valide le HMAC-SHA256 sans jamais lever d'exception (évite un 500)."""
+        if not signature or not signature.strip():
             return False
         expected = hmac.new(
             settings.mobile_money_webhook_secret.encode("utf-8"),
             raw_body,
             hashlib.sha256,
         ).hexdigest()
-        return hmac.compare_digest(expected, signature.strip())
+        provided = signature.strip()
+        # compare_digest lève ValueError si longueurs différentes → 500 côté API
+        if len(provided) != len(expected):
+            return False
+        return hmac.compare_digest(expected, provided)
+
+    @staticmethod
+    def _verifier_signature_webhook(raw_body: bytes, signature: str | None) -> bool:
+        return FinanceService.verifier_signature_webhook(raw_body, signature)
 
     # ── Helpers privés ──────────────────────────────────────────────────────
 

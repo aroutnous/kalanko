@@ -617,3 +617,33 @@ async def test_webhook_mobile_money_signature_invalide(
         },
     )
     assert response.status_code == 401
+    assert response.json()["detail"] == "Signature webhook invalide"
+
+
+@pytest.mark.asyncio
+async def test_webhook_mobile_money_signature_absente(
+    async_client: AsyncClient,
+    auth_headers: dict[str, str],
+    comptable_headers: dict[str, str],
+    seed_auth_data: tuple[Tenant, Utilisateur],
+) -> None:
+    ctx = await _create_finance_context(
+        async_client, auth_headers, comptable_headers
+    )
+    tenant, _ = seed_auth_data
+    payload = {
+        "tenant_id": str(tenant.id),
+        "eleve_id": ctx["eleve_id"],
+        "frais_id": ctx["frais_id"],
+        "annee_scolaire_id": ctx["annee_id"],
+        "montant_paye": "7500",
+        "reference_externe": f"MM-{uuid.uuid4().hex[:12]}",
+    }
+    raw = json.dumps(payload).encode("utf-8")
+    response = await async_client.post(
+        "/finance/webhook/mobile-money",
+        content=raw,
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Signature webhook invalide"

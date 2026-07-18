@@ -1044,8 +1044,15 @@ class PlatformService:
             return apply_filters(self.db.query(AuditLog)).limit(500).all()
 
         logs = self._query_rls_table_all_tenants(AuditLog, apply_filters)
-        logs.sort(key=lambda log: log.created_at, reverse=True)
-        return logs[:500]
+        # Déduplication par ID : la boucle multi-tenant peut remonter plusieurs
+        # fois le même enregistrement (logs visibles sous plusieurs contextes RLS).
+        unique_by_id = {log.id: log for log in logs}
+        deduped = sorted(
+            unique_by_id.values(),
+            key=lambda log: log.created_at,
+            reverse=True,
+        )
+        return deduped[:500]
 
     def creer_utilisateur_tenant(
         self,

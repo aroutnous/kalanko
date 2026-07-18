@@ -239,6 +239,8 @@ async def test_get_audit_logs_global(
     logs = response.json()
     assert len(logs) >= 1
     assert any(log["action"] == "platform.tenant.create" for log in logs)
+    ids = [log["id"] for log in logs]
+    assert len(ids) == len(set(ids)), "Des IDs d'audit logs sont dupliqués"
 
 
 @pytest.mark.asyncio

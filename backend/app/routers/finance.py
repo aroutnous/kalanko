@@ -6,7 +6,7 @@ from typing import Annotated, Callable
 
 import json
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.database import DbSession, set_tenant_context
 from app.core.security import CurrentUser, require_permission
@@ -27,6 +27,7 @@ from app.schemas.finance import (
 )
 from app.services.finance_service import FinanceService
 from app.models.enums import Permission
+from app.services.audit_service import log_audit
 from app.services.permissions import user_has_any_permission, user_has_permission
 
 router = APIRouter(prefix="/finance", tags=["finance"])
@@ -315,9 +316,38 @@ async def webhook_mobile_money(
 ) -> dict[str, object]:
     raw_body = await request.body()
     signature = request.headers.get("X-Webhook-Signature")
+    client_ip = _client_ip(request)
+
+    # Valider la signature avant tout parsing métier (évite 500 / fuite d'info)
+    if not signature or not signature.strip():
+        log_audit(
+            db,
+            action="finance.webhook.mobile_money",
+            resultat="failure",
+            ip_address=client_ip,
+            details={"reason": "signature_absente"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Signature webhook invalide",
+        )
+
+    if not FinanceService.verifier_signature_webhook(raw_body, signature):
+        log_audit(
+            db,
+            action="finance.webhook.mobile_money",
+            resultat="failure",
+            ip_address=client_ip,
+            details={"reason": "signature_invalide"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Signature webhook invalide",
+        )
+
     try:
         payload = json.loads(raw_body.decode("utf-8"))
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Corps JSON invalide",
@@ -329,11 +359,18 @@ async def webhook_mobile_money(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="tenant_id requis",
         )
-    tenant_id = uuid.UUID(str(tenant_id_raw))
+    try:
+        tenant_id = uuid.UUID(str(tenant_id_raw))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="tenant_id invalide",
+        ) from exc
+
     set_tenant_context(db, tenant_id)
 
     return FinanceService(
         db=db,
         tenant_id=tenant_id,
-        ip_address=_client_ip(request),
+        ip_address=client_ip,
     ).webhook_mobile_money(raw_body, signature, payload)
