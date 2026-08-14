@@ -44,12 +44,57 @@ exécute git add/commit/push)* → pipeline vert → fonctionnalité terminée.
 Traite tout code généré comme **non fiable par défaut**.
 
 ### Commandes clés
-- Tests : `pytest`  (101 tests attendus)
+- Tests (tous) : `cd backend && pytest`  (101 tests attendus)
+- Tests (un seul) : `cd backend && pytest tests/test_finance.py::test_nom` —
+  doit s'exécuter depuis `backend/` (`pytest.ini` : `pythonpath = .`, `testpaths = tests`)
 - Pre-commit : `pre-commit run --all-files`
-- Migrations : `alembic upgrade head`
-- Dev : `docker compose up -d --build`
+- Migrations : `cd backend && alembic upgrade head`
+- Frontend dev : `cd frontend && npm run dev` (port 5173)
+- Frontend build : `cd frontend && npm run build` (`tsc -b` puis `vite build` —
+  sert aussi de contrôle de types, il n'y a pas de script `typecheck` séparé)
+- Frontend lint : `cd frontend && npm run lint` (ESLint flat config)
+- Dev (stack complète) : `docker compose up -d --build`
 - Déploiement : push sur `main` → GitHub Actions (7 jobs) → SSH sur le VPS
   (build, `alembic upgrade head`, reload Caddy). **Pas de modif manuelle en prod.**
+
+> **Pas d'outillage Python configuré** (ni ruff, ni black, ni flake8, ni mypy) —
+> le pre-commit ne fait que gitleaks + hygiène whitespace/yaml/json. **Pas de
+> framework de test frontend** (ni vitest, ni jest, ni Playwright/Cypress) et
+> pas de script `npm run test`. Ne pas supposer ces commandes disponibles.
+
+## Architecture backend & frontend
+
+**Backend** (`backend/app/`) : routers (`routers/*.py`, préfixes `/auth`,
+`/eleves`, `/enseignants`, `/pedagogie`, `/finance`, `/reporting`,
+`/platform` ; `etablissement.py` définit ses propres chemins) → services
+(`services/*_service.py`, un par domaine, ex. `EleveService`) → modèles
+SQLAlchemy (`models/*.py`) via une `Session` injectée. **Pas de couche
+repository.** Services transverses : `permissions.py` (permissions
+dynamiques par utilisateur), `audit_service.py`, `calcul_service.py`
+(moyennes/classement), `export_service.py`/`impression_service.py`
+(PDF/XLSX). `main.py` : ordre des middlewares = rate limiting (SlowAPI) →
+CORS → `AuditMiddleware` → `TenantMiddleware`. `core/` : `config.py`
+(pydantic-settings), `database.py` (engine + `set_tenant_context` pour la
+RLS), `security.py` (JWT/bcrypt). Migrations : `backend/alembic/versions/`,
+convention `NNN_description.py` — exception : deux révisions `011_*`
+concurrentes réconciliées par la migration de fusion (nom en hash)
+`e0b83de26a80_012_merge_matieres_sequences.py`.
+
+**Frontend** (`frontend/src/`) : TailwindCSS v4 + shadcn/ui · état serveur
+via React Query, état client via Zustand (`stores/authStore.ts`,
+`exportHistoryStore.ts`, `toastStore.ts`) · `components/` et `pages/`
+organisés par domaine · `hooks/use*Access.ts` = contrôle d'accès par
+domaine · `lib/*-api.ts` = clients API par domaine (pas de dossier
+`services/` — contrairement à `.cursorrules`, qui est obsolète sur ce
+point). Rôles : `platform_owner`, `promoteur`, `directeur`, `secretaire`,
+`comptable`. Modules V1 : Auth/Accès, Établissement, Élèves, Pédagogie,
+Finance, Reporting/Documents.
+
+**Docker Compose** : un seul `docker-compose.yml` à la racine (sert dev et
+prod via `env_file: .env.prod`, pas de fichier prod séparé), 9 services :
+`db` (postgres:16), `redis`, `backend`, `frontend`, `adminer` (dev,
+`127.0.0.1` uniquement), `prometheus`, `grafana` (`127.0.0.1` uniquement),
+`loki`, `promtail`.
 
 ## Pipeline CI/CD (7 jobs — les bloquants doivent passer)
 
@@ -63,7 +108,7 @@ Traite tout code généré comme **non fiable par défaut**.
 
 ## Stack & infra (résumé — détails dans les docs importées)
 
-- Frontend : React 18 / Vite / TypeScript — nginx:3000
+- Frontend : React 19 / Vite / TypeScript / TailwindCSS v4 + shadcn/ui — nginx:3000
 - Backend : FastAPI (Python 3.12) / SQLAlchemy / Alembic — :8000
 - BDD : PostgreSQL 16 + RLS (21 tables) · Cache : Redis 7
 - Docker Compose (9 services) derrière Caddy (HTTPS auto)
