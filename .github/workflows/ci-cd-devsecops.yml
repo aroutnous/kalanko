@@ -14,6 +14,7 @@ jobs:
   secrets-scan:
     name: "1 · Gitleaks — Détection secrets"
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,6 +30,7 @@ jobs:
     name: "2 · SAST — Bandit + Semgrep"
     runs-on: ubuntu-latest
     needs: secrets-scan
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -61,6 +63,7 @@ jobs:
     name: "3 · SCA — Safety + npm audit"
     runs-on: ubuntu-latest
     needs: secrets-scan
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -90,6 +93,7 @@ jobs:
     name: "4 · Trivy — Scan image Docker"
     runs-on: ubuntu-latest
     needs: [sast, sca]
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - name: Run Trivy (filesystem)
@@ -108,6 +112,7 @@ jobs:
     name: "5 · IaC — Checkov (Docker Compose + Terraform)"
     runs-on: ubuntu-latest
     needs: [secrets-scan, sast, sca, container-scan]
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -134,7 +139,11 @@ jobs:
     name: "6 · Deploy production VPS"
     runs-on: ubuntu-latest
     needs: [secrets-scan, sast, sca, container-scan, iac-scan]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      !contains(needs.*.result, 'failure')
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
