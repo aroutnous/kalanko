@@ -39,28 +39,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: OWASP ZAP Full Scan
-        run: |
-          docker pull ghcr.io/zaproxy/zaproxy:stable
-          docker run --rm \
-            -v $(pwd):/zap/wrk/:rw \
-            ghcr.io/zaproxy/zaproxy:stable \
-            zap-full-scan.py \
-            -t https://kalanko.tech \
-            -J report_json.json \
-            -w report_md.md \
-            -r report_html.html \
-            -a \
-            -I
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
         continue-on-error: true
-
-      - name: Upload ZAP report
-        uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: rapport-zap-kalanko
-          path: |
-            report_html.html
-            report_json.json
-            report_md.md
-          retention-days: 30
+          target: 'https://kalanko.tech'
+          docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
+          cmd_options: '-a'
+          fail_action: false
+          allow_issue_writing: true
+          artifact_name: 'rapport-zap-kalanko'
