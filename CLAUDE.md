@@ -57,6 +57,20 @@ Traite tout code généré comme **non fiable par défaut**.
 - Déploiement : push sur `main` → GitHub Actions (7 jobs) → SSH sur le VPS
   (build, `alembic upgrade head`, reload Caddy). **Pas de modif manuelle en prod.**
 
+### Workflow local → prod
+1. Branche feature depuis `main`.
+2. `docker compose up -d --build`
+3. `cd backend && alembic upgrade head`
+4. `cd backend && python -m scripts.seed_local` — peuple le tenant local
+   `ecole-test` (élèves, enseignants, paiement test). **Local uniquement** :
+   le script refuse de tourner si `ENVIRONMENT` ou l'hôte de `DATABASE_URL`
+   ne pointent pas vers le dev local.
+5. Test manuel : login `directeur@ecole-test.ml` / `Password123!`,
+   navigation, la fonctionnalité visée.
+6. `cd backend && pytest` — 101/101 doit passer.
+7. Seulement ensuite : commit → push → PR (scans `ci-pr.yml` verts) → merge
+   → déploiement auto (`cd-main.yml`).
+
 > **Pas d'outillage Python configuré** (ni ruff, ni black, ni flake8, ni mypy) —
 > le pre-commit ne fait que gitleaks + hygiène whitespace/yaml/json. **Pas de
 > framework de test frontend** (ni vitest, ni jest, ni Playwright/Cypress) et
