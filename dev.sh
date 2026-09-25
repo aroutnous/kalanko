@@ -29,7 +29,7 @@ case "$cmd" in
     docker compose exec -e DATABASE_URL="$DEV_DATABASE_URL" backend python -m scripts.seed_local
     ;;
   test)
-    docker compose exec -e DATABASE_URL="$DEV_DATABASE_URL" backend pytest
+    docker compose exec -e DATABASE_URL="$DEV_DATABASE_URL" -e TEST_DATABASE_URL="$DEV_DATABASE_URL" backend pytest
     ;;
   down)
     docker compose down
