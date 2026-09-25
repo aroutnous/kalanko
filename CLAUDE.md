@@ -59,15 +59,14 @@ Traite tout code généré comme **non fiable par défaut**.
 
 ### Workflow local → prod
 1. Branche feature depuis `main`.
-2. `docker compose up -d --build`
-3. `cd backend && alembic upgrade head`
-4. `cd backend && python -m scripts.seed_local` — peuple le tenant local
-   `ecole-test` (élèves, enseignants, paiement test). **Local uniquement** :
-   le script refuse de tourner si `ENVIRONMENT` ou l'hôte de `DATABASE_URL`
-   ne pointent pas vers le dev local.
+2. `./dev.sh up`
+3. `./dev.sh migrate`
+4. `./dev.sh seed` — peuple le tenant local `ecole-test` (élèves, enseignants,
+   paiement test). **Local uniquement** : le script refuse de tourner si
+   `ENVIRONMENT` ou l'hôte de `DATABASE_URL` ne pointent pas vers le dev local.
 5. Test manuel : login `directeur@ecole-test.ml` / `Password123!`,
    navigation, la fonctionnalité visée.
-6. `cd backend && pytest` — 101/101 doit passer.
+6. `./dev.sh test` — 101/101 doit passer.
 7. Seulement ensuite : commit → push → PR (scans `ci-pr.yml` verts) → merge
    → déploiement auto (`cd-main.yml`).
 

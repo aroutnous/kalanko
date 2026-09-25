@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
+COPY scripts/ ./scripts/
+COPY tests/ ./tests/
+COPY pytest.ini .
 
 RUN chown -R kalanko:kalanko /app
 USER kalanko
