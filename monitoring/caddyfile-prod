@@ -38,6 +38,3 @@ api.kalanko.tech {
 
     reverse_proxy localhost:8000
 }
-
-# Grafana (monitoring — à activer manuellement)
-# grafana.kalanko.tech → localhost:3001 (à activer manuellement)
