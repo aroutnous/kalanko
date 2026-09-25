@@ -364,6 +364,8 @@ def main() -> None:
             },
         )
 
+        paiement_reference = paiement.reference_transaction
+
         db.commit()
     except Exception:
         db.rollback()
@@ -377,7 +379,7 @@ def main() -> None:
     print(f"Connexion    : {TEST_DIRECTEUR_EMAIL} / {TEST_DIRECTEUR_PASSWORD}")
     print(f"Élèves       : {len(ELEVES_DATA)} inscrits (ET-2025-001..004)")
     print("Enseignants  : 2")
-    print(f"Paiement test: 25 000 FCFA (référence {paiement.reference_transaction})")
+    print(f"Paiement test: 25 000 FCFA (référence {paiement_reference})")
     print("=" * 60)
 
 
