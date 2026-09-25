@@ -105,10 +105,9 @@ point). Rôles : `platform_owner`, `promoteur`, `directeur`, `secretaire`,
 Finance, Reporting/Documents.
 
 **Docker Compose** : un seul `docker-compose.yml` à la racine (sert dev et
-prod via `env_file: .env.prod`, pas de fichier prod séparé), 9 services :
+prod via `env_file: .env.prod`, pas de fichier prod séparé), 5 services :
 `db` (postgres:16), `redis`, `backend`, `frontend`, `adminer` (dev,
-`127.0.0.1` uniquement), `prometheus`, `grafana` (`127.0.0.1` uniquement),
-`loki`, `promtail`.
+`127.0.0.1` uniquement).
 
 ## Pipeline CI/CD (7 jobs — les bloquants doivent passer)
 
@@ -125,8 +124,7 @@ prod via `env_file: .env.prod`, pas de fichier prod séparé), 9 services :
 - Frontend : React 19 / Vite / TypeScript / TailwindCSS v4 + shadcn/ui — nginx:3000
 - Backend : FastAPI (Python 3.12) / SQLAlchemy / Alembic — :8000
 - BDD : PostgreSQL 16 + RLS (21 tables) · Cache : Redis 7
-- Docker Compose (9 services) derrière Caddy (HTTPS auto)
-- Monitoring : Prometheus / Grafana / Loki / Promtail
+- Docker Compose (5 services) derrière Caddy (HTTPS auto)
 - VPS Hostinger, Ubuntu 24.04 LTS, kalanko.tech. Ports 5432/6379 **fermés** au
   public. SSH clé uniquement, UFW, Fail2ban. `.env.prod` → `/opt/kalanko/.env.prod`.
 - Repo : `aroutnous/kalanko` · Platform Owner : aroutnous@gmail.com
